@@ -1,0 +1,401 @@
+/* ==========================================
+   BỘ ĐỊNH NGHĨA MÀU SẮC ESPRESSO & MINT CAO CẤP 
+   ========================================== */
+:root {
+  --coffee-dark: #1e1b18;      /* Màu nền đen hạt cà phê */
+  --mint-emerald: #0ea5e9;    /* Màu xanh Mint công nghệ chuyển màu */
+  --mint-glow: #38bdf8;       /* Màu phát quang khi hover */
+  --bg-app: #f1f5f9;          /* Màu nền xám sang trọng nhẹ không lóa mắt */
+  --text-dark: #0f172a;       /* Chữ chính */
+  --text-gray: #475569;       /* Chữ phụ */
+  --alert-red-bg: #fef2f2;    /* Nền đỏ dâu cảnh báo tinh tế */
+  --alert-red-border: #fca5a5;/* Viền cảnh báo */
+  --alert-red-text: #dc2626;  /* Màu chữ cảnh báo cháy hàng */
+  --radius-premium: 16px;
+  --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* KHUNG TỔNG: Khống chế vừa vặn màn hình trình duyệt, không sinh cuộn dọc toàn trang */
+.admin-dashboard-wrapper {
+  background-color: var(--bg-app);
+  min-height: 100vh;
+  max-height: 100vh;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden; /* Triệt tiêu thanh cuộn thô bỉ của trình duyệt */
+  display: flex;
+}
+
+.admin-main-container {
+  margin-left: 75px; /* Căn chỉnh khoảng cách né hoàn toàn Sidebar icon tròn */
+  width: calc(100% - 75px);
+  height: 100vh;
+  padding: 20px 30px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px; /* Giãn cách chặt chẽ */
+}
+
+/* Header Thượng Lưu */
+.dashboard-header-premium {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.header-left-group {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.btn-modern-back {
+  background: #ffffff;
+  color: var(--text-gray);
+  border: 1px solid #cbd5e1;
+  padding: 8px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  transition: var(--transition-smooth);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.btn-modern-back:hover {
+  background: var(--text-dark);
+  color: #ffffff;
+  transform: translateX(-3px);
+}
+
+.header-text-titles h2 {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0;
+  color: var(--text-dark);
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  margin: 2px 0 0 0;
+  color: var(--text-gray);
+  font-size: 13px;
+}
+
+/* Nút bấm Gradient Phát Sáng */
+.btn-glass-gradient {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: #ffffff !important;
+  border: none;
+  padding: 12px 22px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+  transition: var(--transition-smooth);
+}
+
+.btn-glass-gradient:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(2, 132, 199, 0.5);
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+}
+
+/* Thanh Tìm Kiếm Glassmorphism Độc Đáo */
+.premium-toolbar {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+}
+
+.search-glass-wrapper, .filter-glass-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.search-glass-wrapper { flex: 1; }
+
+.glass-icon {
+  position: absolute;
+  left: 16px;
+  color: var(--text-gray);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.input-premium-glass, .select-premium-glass {
+  width: 100%;
+  padding: 12px 16px 12px 44px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+  font-size: 14px;
+  color: var(--text-dark);
+  transition: var(--transition-smooth);
+  outline: none;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+}
+
+.input-premium-glass:focus, .select-premium-glass:focus {
+  border-color: var(--mint-emerald);
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15);
+}
+
+/* KHỐI CHỨA BẢNG TỰ CO GIÃN THEO TRÌNH DUYỆT (FLEX-GROW KHÔNG TRÀN CHÂN) */
+.luxury-table-card {
+  flex-grow: 1;
+  background: #ffffff;
+  border-radius: var(--radius-premium);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Cực kỳ quan trọng để giữ chân footer cố định */
+}
+
+/* Hộp cuộn nội bộ của bảng dữ liệu */
+.table-scroll-container {
+  flex-grow: 1;
+  overflow-y: auto; /* Chỉ cuộn dọc khi dữ liệu tràn mảng phân trang */
+  width: 100%;
+}
+
+.luxury-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.luxury-table th {
+  position: sticky;
+  top: 0;
+  background-color: #f8fafc;
+  z-index: 10;
+  color: var(--text-gray);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.luxury-row {
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+  transition: var(--transition-smooth);
+}
+
+.luxury-row:hover {
+  background-color: #f8fafc !important;
+}
+
+.luxury-table td {
+  padding: 12px 20px;
+  vertical-align: middle;
+}
+
+/* Khung bọc avatar hình ảnh bo tròn tinh xảo */
+.avatar-glass-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  border: 1px solid #e2e8f0;
+}
+
+.img-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-core-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.product-name-txt {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-dark);
+}
+
+/* ĐIỀU CHỈNH HÀNG CẢNH BÁO CHÁY HÀNG NỔI BẬT */
+.row-critical-alert {
+  background-color: var(--alert-red-bg) !important;
+}
+
+.glow-alert-badge {
+  background: #fee2e2;
+  color: var(--alert-red-text);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  width: max-content;
+  border: 1px solid var(--alert-red-border);
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.1);
+}
+
+/* Các nhãn thể loại */
+.luxury-tag {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background-color: #cbd5e1;
+  color: var(--text-dark);
+}
+.luxury-tag[data-cat="Nguyên liệu"] {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+.luxury-tag[data-cat="Cà phê"] {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.price-sell-text { color: #10b981; font-size: 15px; font-weight: 700; }
+.price-cost-text { color: #64748b; font-size: 14px; }
+
+/* Viên thuốc hiển thị tồn kho */
+.stock-pill-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+.stock-indicator-num { font-size: 14px; font-weight: 700; color: var(--text-dark); }
+.stock-indicator-num.danger-blink {
+  color: var(--alert-red-text);
+  font-size: 15px;
+}
+.stock-indicator-unit { font-size: 11px; color: var(--text-gray); }
+
+/* Nút xóa tinh gọn */
+.btn-neon-delete {
+  background: none; border: none; font-size: 14px; color: #94a3b8;
+  cursor: pointer; padding: 6px 10px; border-radius: 6px; transition: var(--transition-smooth);
+}
+.btn-neon-delete:hover { background: #fee2e2; color: var(--alert-red-text); }
+
+/* ĐÁY PHÂN TRANG PREMIUM */
+.luxury-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 24px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+.pagination-left-info { font-size: 13px; color: var(--text-gray); }
+.pagination-left-info span { font-weight: 700; color: var(--text-dark); }
+
+.pagination-right-buttons { display: flex; align-items: center; gap: 8px; }
+.page-numbers-group { display: flex; gap: 4px; }
+
+.btn-nav-glass, .btn-num-glass {
+  background: #ffffff; border: 1px solid #cbd5e1; height: 34px;
+  padding: 0 12px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  color: var(--text-gray); cursor: pointer; transition: var(--transition-smooth);
+}
+.btn-num-glass { min-width: 34px; padding: 0; }
+
+.btn-nav-glass:hover:not(:disabled), .btn-num-glass:hover {
+  border-color: var(--mint-emerald);
+  color: var(--mint-emerald);
+  background: #ffffff;
+}
+
+.btn-nav-glass:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-num-glass.active-neon {
+  background: var(--text-dark) !important;
+  color: #ffffff !important;
+  border-color: var(--text-dark) !important;
+}
+
+/* ==========================================
+   POPUP MODAL CAO CẤP BLUR NỀN
+   ========================================== */
+.glass-backdrop-blur {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(15, 23, 42, 0.3);
+  backdrop-filter: blur(8px);
+  display: flex; justify-content: center; align-items: center; z-index: 999;
+}
+
+.luxury-modal-card {
+  background: #ffffff; width: 580px; max-width: 90%;
+  border-radius: var(--radius-premium); overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: modalScaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.luxury-modal-header {
+  padding: 16px 24px; display: flex; justify-content: space-between;
+  align-items: center; border-bottom: 1px solid #f1f5f9; background: #f8fafc;
+}
+
+.modal-title-flex { display: flex; align-items: center; gap: 8px; }
+.modal-gem-indicator { width: 4px; height: 16px; background: var(--mint-emerald); border-radius: 2px; }
+.modal-title-flex h3 { margin: 0; font-size: 16px; font-weight: 700; color: var(--text-dark); }
+
+.btn-close-neon {
+  background: none; border: none; font-size: 16px; color: var(--text-gray); cursor: pointer;
+}
+.btn-close-neon:hover { color: var(--text-dark); }
+
+.luxury-modal-body { padding: 24px; }
+
+/* Chi tiết layout */
+.detail-premium-flex { display: flex; flex-direction: column; gap: 16px; }
+.detail-cover-blur {
+  width: 100%; height: 160px; background-size: cover; background-position: center;
+  border-radius: 12px;
+}
+.detail-main-info h4 { font-size: 20px; font-weight: 800; margin: 0 0 12px 0; color: var(--text-dark); }
+.detail-chips-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.chip-premium { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #f1f5f9;}
+
+.detail-description-card {
+  background: #f8fafc; padding: 12px 16px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 16px;
+}
+.detail-description-card h5 { margin: 0 0 4px 0; font-size: 12px; color: var(--text-gray); text-transform: uppercase; }
+.detail-description-card p { margin: 0; font-size: 14px; color: var(--text-dark); line-height: 1.5; }
+
+.btn-action-trigger-edit {
+  width: 100%; background: #ea580c; color: white; border: none; padding: 12px;
+  border-radius: 10px; font-weight: 700; cursor: pointer; transition: var(--transition-smooth);
+}
+.btn-action-trigger-edit:hover { background: #c2410c; }
+
+/* Tương tác form điền */
+.luxury-interactive-form { display: flex; flex-direction: column; gap: 14px; }
+.form-row-full { display: flex; flex-direction: column; gap: 4px; }
+.form-row-grid { display: flex; gap: 12px; }
+.form-group-cell { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+
+.luxury-interactive-form label { font-size: 13px; font-weight: 700; color: var(--text-gray); }
+.luxury-interactive-form input, .luxury-interactive-form select, .luxury-interactive-form textarea {
+  padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; outline: none; background: #fff;
+}
+.luxury-interactive-form input:focus, .luxury-interactive-form select:focus { border-color: var(--mint-emerald); }
+
+.form-submit-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+.btn-action-cancel { background: #f1f5f9; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.btn-action-submit { background: var(--text-dark); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+
+.empty-state-luxury { text-align: center; padding: 40px !important; }
+.empty-state-icon { font-size: 32px; display: block; margin-bottom: 8px; }

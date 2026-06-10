@@ -1,0 +1,223 @@
+<div class="admin-dashboard-wrapper">
+  <div class="admin-main-container">
+    
+    <header class="dashboard-header-premium">
+      <div class="header-left-group">
+        <button class="btn-modern-back" (click)="goBackToPos()">
+          <span class="icon-arrow">🧠</span> Trở về POS
+        </button>
+        <div class="header-text-titles">
+          <h2>Quản Lý Kho & Thực Đơn</h2>
+          <p class="subtitle">Hệ thống kiểm soát lõi dòng chảy QL_CF</p>
+        </div>
+      </div>
+      <button class="btn-glass-gradient" (click)="openAddModal()">
+        <span class="icon-plus">⚡</span> Thêm Món / Nguyên Liệu
+      </button>
+    </header>
+
+    <section class="premium-toolbar">
+      <div class="search-glass-wrapper">
+        <span class="glass-icon">🔍</span>
+        <input 
+          type="text" 
+          placeholder="Tìm tên sản phẩm hoặc nguyên liệu cần tra cứu..." 
+          [(ngModel)]="searchQuery" 
+          (input)="applyFilterAndSort()" 
+          class="input-premium-glass"
+        />
+      </div>
+      
+      <div class="filter-glass-wrapper">
+        <span class="glass-icon">📁</span>
+        <select [(ngModel)]="selectedCategoryFilter" (change)="applyFilterAndSort()" class="select-premium-glass">
+          <option value="Tất cả">Tất cả danh mục sản phẩm</option>
+          <option *ngFor="let cat of CATEGORIES" [value]="cat">{{cat}}</option>
+        </select>
+      </div>
+    </section>
+
+    <main class="luxury-table-card">
+      <div class="table-scroll-container">
+        <table class="luxury-table">
+          <thead>
+            <tr>
+              <th width="8%">Hình</th>
+              <th width="32%">Tên mặt hàng</th>
+              <th width="14%">Danh mục</th>
+              <th width="12%">Giá bán lẻ</th>
+              <th width="12%">Giá vốn nhập</th>
+              <th width="12%">Tồn kho thực tế</th>
+              <th width="10%" class="text-center">Hành động</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr 
+              *ngFor="let product of pagedProducts; trackBy: trackById" 
+              (click)="openDetailModal(product)"
+              [class.row-critical-alert]="product.category === 'Nguyên liệu' && product.quantity < 3"
+              class="luxury-row"
+            >
+              <td>
+                <div class="avatar-glass-box">
+                  <img [src]="product.imageUrl || DEFAULT_IMAGE" alt="Product" class="img-avatar" />
+                </div>
+              </td>
+              <td>
+                <div class="product-core-cell">
+                  <span class="product-name-txt">{{product.name}}</span>
+                  <span *ngIf="product.category === 'Nguyên liệu' && product.quantity < 3" class="glow-alert-badge">
+                    🔥 HỦY HÀNG / SẮP HẾT KHO
+                  </span>
+                </div>
+              </td>
+              <td>
+                <span class="luxury-tag" [attr.data-cat]="product.category">{{product.category}}</span>
+              </td>
+              <td>
+                <b class="price-sell-text" *ngIf="product.category !== 'Nguyên liệu'">{{product.price | number}} ₫</b>
+                <span class="empty-dash" *ngIf="product.category === 'Nguyên liệu'">—</span>
+              </td>
+              <td>
+                <span class="price-cost-text">{{product.costPrice | number}} ₫</span>
+              </td>
+              <td>
+                <div *ngIf="product.category === 'Nguyên liệu'" class="stock-pill-wrapper">
+                  <span class="stock-indicator-num" [class.danger-blink]="product.quantity < 3">
+                    {{product.quantity}}
+                  </span>
+                  <span class="stock-indicator-unit">đvị</span>
+                </div>
+                <span class="empty-dash" *ngIf="product.category !== 'Nguyên liệu'">—</span>
+              </td>
+              <td class="text-center" (click)="$event.stopPropagation()">
+                <button class="btn-neon-delete" (click)="deleteProduct(product._id!, $event)" title="Xóa khỏi hệ thống">
+                  ✕
+                </button>
+              </td>
+            </tr>
+
+            <tr *ngIf="filteredProducts.length === 0">
+              <td colspan="7" class="empty-state-luxury">
+                <div class="empty-state-center">
+                  <span class="empty-state-icon">☕</span>
+                  <p>Không tìm thấy dữ liệu khớp với bộ lọc hiện tại!</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <footer class="luxury-pagination" *ngIf="filteredProducts.length > itemsPerPage">
+        <div class="pagination-left-info">
+          Hiển thị <span>{{ pageStart }} - {{ pageEnd }}</span> trên tổng số <span>{{ filteredProducts.length }}</span> mặt hàng
+        </div>
+        <div class="pagination-right-buttons">
+          <button type="button" class="btn-nav-glass" [disabled]="currentPage === 1" (click)="prevPage()">
+            ‹ Trước
+          </button>
+          
+          <div class="page-numbers-group">
+            <button
+              *ngFor="let page of pageRange"
+              type="button"
+              class="btn-num-glass"
+              [class.active-neon]="currentPage === page"
+              (click)="goToPage(page)"
+            >
+              {{ page }}
+            </button>
+          </div>
+
+          <button type="button" class="btn-nav-glass" [disabled]="currentPage === totalPages" (click)="nextPage()">
+            Tiếp ›
+          </button>
+        </div>
+      </footer>
+    </main>
+
+  </div>
+</div>
+
+<div class="glass-backdrop-blur" *ngIf="isModalOpen" (click)="closeModal()">
+  <div class="luxury-modal-card" (click)="$event.stopPropagation()">
+    
+    <div class="luxury-modal-header">
+      <div class="modal-title-flex">
+        <span class="modal-gem-indicator"></span>
+        <h3 *ngIf="modalMode === 'detail'">Chi Tiết Bản Ghi</h3>
+        <h3 *ngIf="modalMode === 'add'">Khởi Tạo Mặt Hàng</h3>
+        <h3 *ngIf="modalMode === 'edit'">Cập Nhật Cấu Hình</h3>
+      </div>
+      <button class="btn-close-neon" (click)="closeModal()">✕</button>
+    </div>
+
+    <div class="luxury-modal-body">
+      <div *ngIf="modalMode === 'detail'" class="detail-premium-flex">
+        <div class="detail-cover-blur" [style.backgroundImage]="'url(' + (currentProduct.imageUrl || DEFAULT_IMAGE) + ')'"></div>
+        <div class="detail-main-info">
+          <h4>{{currentProduct.name}}</h4>
+          <div class="detail-chips-row">
+            <span class="chip-premium font-cat">📁 {{currentProduct.category}}</span>
+            <span class="chip-premium font-sell" *ngIf="currentProduct.category !== 'Nguyên liệu'">💰 Giá bán: {{currentProduct.price | number}}đ</span>
+            <span class="chip-premium font-cost">📉 Vốn: {{currentProduct.costPrice | number}}đ</span>
+            <span class="chip-premium font-qty" *ngIf="currentProduct.category === 'Nguyên liệu'">📦 Tồn kho: {{currentProduct.quantity}} đvị</span>
+          </div>
+          <div class="detail-description-card">
+            <h5>Mô tả / Công thức pha chế:</h5>
+            <p>{{currentProduct.description || 'Chưa cấu hình nội dung mô tả sản phẩm.'}}</p>
+          </div>
+          <button class="btn-action-trigger-edit" (click)="switchToEdit()">⚙️ Chỉnh sửa thông số</button>
+        </div>
+      </div>
+
+      <form *ngIf="modalMode === 'add' || modalMode === 'edit'" (ngSubmit)="saveProduct()" class="luxury-interactive-form">
+        <div class="form-row-full">
+          <label>Tên gọi hiển thị sản phẩm / nguyên liệu <span class="required-star">*</span></label>
+          <input type="text" [(ngModel)]="currentProduct.name" name="name" required placeholder="Ví dụ: Cà phê hạt Arabica, Sữa tươi thanh trùng..." />
+        </div>
+
+        <div class="form-row-grid">
+          <div class="form-group-cell">
+            <label>Phân loại danh mục</label>
+            <select [(ngModel)]="currentProduct.category" name="category">
+              <option *ngFor="let cat of CATEGORIES" [value]="cat">{{cat}}</option>
+            </select>
+          </div>
+          <div class="form-group-cell" *ngIf="currentProduct.category !== 'Nguyên liệu'">
+            <label>Giá niêm yết bán lẻ (đ) <span class="required-star">*</span></label>
+            <input type="number" [(ngModel)]="currentProduct.price" name="price" />
+          </div>
+        </div>
+
+        <div class="form-row-grid">
+          <div class="form-group-cell">
+            <label>Giá vốn nhập hàng (đ)</label>
+            <input type="number" [(ngModel)]="currentProduct.costPrice" name="costPrice" />
+          </div>
+          <div class="form-group-cell" *ngIf="currentProduct.category === 'Nguyên liệu'">
+            <label>Số lượng kiểm kho</label>
+            <input type="number" [(ngModel)]="currentProduct.quantity" name="quantity" />
+          </div>
+        </div>
+
+        <div class="form-row-full">
+          <label>Đường dẫn ảnh đại diện (URL Ảnh trực tuyến)</label>
+          <input type="text" [(ngModel)]="currentProduct.imageUrl" name="imageUrl" placeholder="https://images.unsplash.com/..." />
+        </div>
+
+        <div class="form-row-full">
+          <label>Ghi chú hệ thống / Định lượng công thức</label>
+          <textarea [(ngModel)]="currentProduct.description" name="description" rows="3" placeholder="Ghi chú thời gian nhập, nhà cung cấp hoặc công thức cốt nền tại đây..."></textarea>
+        </div>
+
+        <footer class="form-submit-footer">
+          <button type="button" class="btn-action-cancel" (click)="closeModal()">Hủy bỏ</button>
+          <button type="submit" class="btn-action-submit">Cập nhật vào hệ thống</button>
+        </footer>
+      </form>
+    </div>
+
+  </div>
+</div>

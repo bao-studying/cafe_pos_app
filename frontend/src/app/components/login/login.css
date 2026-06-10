@@ -1,0 +1,495 @@
+/* ==================== VARIABLES & BASE ==================== */
+:host {
+  --color-primary: #00d4aa;
+  --color-primary-dark: #00a88f;
+  --color-primary-light: #33e5be;
+  --color-secondary: #1a1a2e;
+  --color-background: #0f0f1e;
+  --color-surface: #1a1a2e;
+  --color-border: rgba(0, 212, 170, 0.2);
+  --color-text: #ffffff;
+  --color-text-secondary: #b0b0c0;
+  --color-error: #ff4757;
+  --color-success: #2ed573;
+
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ==================== BACKGROUND & LAYOUT ==================== */
+.login-wrapper {
+  position: relative;
+  width: 100%;
+  /* ✅ FIX SIZE: Vừa đúng viewport, không scroll */
+  height: 100vh;
+  max-height: 100dvh; /* dynamic viewport height cho mobile */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--color-background);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--color-text);
+}
+
+.background-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.gradient-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #0f0f1e 0%, #1a2332 50%, #0f0f1e 100%);
+  /* ✅ PERF: Dùng will-change thay vì animation nặng */
+  will-change: auto;
+}
+
+.particle-canvas {
+  position: absolute;
+  inset: 0;
+  opacity: 0.4;
+  /* ✅ PERF: GPU layer riêng cho canvas */
+  will-change: transform;
+}
+
+/* ==================== FLOATING BALLS ==================== */
+.floating-elements {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.ball {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(0, 212, 170, 0.3), rgba(0, 212, 170, 0.05));
+  filter: blur(40px);
+  /* ✅ PERF: will-change chỉ cho element đang animate */
+  will-change: transform;
+}
+
+.ball-1 { width: 250px; height: 250px; top: -8%; right: -4%; animation: float1 20s ease-in-out infinite; }
+.ball-2 { width: 200px; height: 200px; bottom: 4%; left: -4%; animation: float2 25s ease-in-out infinite; }
+.ball-3 { width: 160px; height: 160px; top: 50%; right: 4%; animation: float3 22s ease-in-out infinite; }
+
+@keyframes float1 {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(25px, -35px); }
+  66% { transform: translate(-35px, 25px); }
+}
+@keyframes float2 {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(35px, 25px); }
+  66% { transform: translate(-25px, -35px); }
+}
+@keyframes float3 {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(-35px, 35px); }
+  66% { transform: translate(25px, -25px); }
+}
+
+/* ==================== FORM CONTAINER ==================== */
+.form-container {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 400px;
+  /* ✅ FIX SIZE: Giới hạn chiều cao theo viewport */
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 28px 32px;
+  margin: 16px;
+  background: linear-gradient(135deg, rgba(26, 26, 46, 0.85), rgba(26, 35, 50, 0.7));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(0, 212, 170, 0.15);
+  animation: containerAppear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* ✅ PERF: Tắt scrollbar xấu */
+  scrollbar-width: none;
+}
+.form-container::-webkit-scrollbar { display: none; }
+
+@keyframes containerAppear {
+  from { opacity: 0; transform: scale(0.96) translateY(16px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ==================== FORM HEADER ==================== */
+.form-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.logo-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+  border-radius: 14px;
+  animation: iconBounce 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.logo-icon svg {
+  width: 28px;
+  height: 28px;
+  color: var(--color-background);
+  stroke-width: 2;
+}
+
+@keyframes iconBounce {
+  0% { transform: scale(0) rotate(-180deg); }
+  60% { transform: scale(1.1) rotate(8deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.form-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 6px;
+}
+
+.form-subtitle {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.5px;
+}
+
+/* ==================== MESSAGES ==================== */
+.message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  animation: slideDown 0.3s ease;
+}
+
+.message-icon { font-size: 14px; }
+
+.message-error {
+  background: rgba(255, 71, 87, 0.15);
+  border: 1px solid rgba(255, 71, 87, 0.3);
+  color: #ff9a9e;
+}
+
+.message-success {
+  background: rgba(46, 213, 115, 0.15);
+  border: 1px solid rgba(46, 213, 115, 0.3);
+  color: #6eff97;
+}
+
+/* ==================== FORM CONTENT ==================== */
+.form-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  opacity: 0;
+  animation: slideDown 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.fade-in-1 { animation-delay: 0.08s; }
+.fade-in-2 { animation-delay: 0.16s; }
+.fade-in-3 { animation-delay: 0.24s; }
+.fade-in-4 { animation-delay: 0.32s; }
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.form-group label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--color-primary);
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  font-size: 15px;
+  color: var(--color-text);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  font-weight: 500;
+}
+
+.form-input::placeholder { color: rgba(255, 255, 255, 0.25); }
+
+.form-input:focus {
+  outline: none;
+  background: rgba(0, 212, 170, 0.08);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 16px rgba(0, 212, 170, 0.25);
+}
+
+/* ✅ FIX LAG: Bỏ transform: translateY(-2px) trên focus — gây layout recalc */
+
+.form-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ==================== PIN CONTAINER ==================== */
+.pin-container {
+  position: relative;
+  cursor: text;
+}
+
+.pin-input-wrapper {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.pin-digit {
+  width: 56px;
+  height: 64px;
+  background: rgba(0, 212, 170, 0.06);
+  border: 2px solid var(--color-border);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* ✅ PERF: Chỉ transition border-color, không transition transform */
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.pin-digit.active {
+  border-color: var(--color-primary);
+  background: rgba(0, 212, 170, 0.12);
+  box-shadow: 0 0 16px rgba(0, 212, 170, 0.25);
+}
+
+.pin-digit.filled {
+  border-color: var(--color-primary);
+  background: rgba(0, 212, 170, 0.1);
+}
+
+.pin-dot {
+  width: 10px;
+  height: 10px;
+  background: var(--color-primary);
+  border-radius: 50%;
+  display: block;
+  animation: dotAppear 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 0 8px var(--color-primary);
+}
+
+@keyframes dotAppear {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
+/* ✅ FIX: Hidden input hoàn toàn không chiếm space */
+.pin-real-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  border: none;
+  pointer-events: none;
+  top: 0;
+  left: 0;
+}
+
+/* ==================== PIN KEYPAD ==================== */
+.pin-keypad {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+.keypad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.keypad-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.keypad-btn {
+  padding: 14px 10px;
+  background: rgba(0, 212, 170, 0.1);
+  border: 1.5px solid var(--color-border);
+  border-radius: 10px;
+  color: var(--color-text);
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  /* ✅ PERF: Chỉ transition những prop thực sự cần */
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.keypad-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: rgba(0, 212, 170, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 212, 170, 0.15);
+}
+
+.keypad-btn:active:not(:disabled) {
+  background: rgba(0, 212, 170, 0.3);
+  transform: scale(0.96);
+}
+
+.keypad-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.keypad-backspace {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.keypad-backspace svg { width: 18px; height: 18px; stroke-width: 2; }
+
+/* ==================== SUBMIT BUTTON ==================== */
+.submit-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  border: none;
+  border-radius: 10px;
+  color: var(--color-background);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+  text-transform: uppercase;
+  box-shadow: 0 8px 24px rgba(0, 212, 170, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
+  box-shadow: 0 12px 32px rgba(0, 212, 170, 0.35);
+  transform: translateY(-1px);
+}
+
+.submit-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 6px 18px rgba(0, 212, 170, 0.2);
+}
+
+.submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+.spinner {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(15, 15, 30, 0.3);
+  border-top-color: var(--color-background);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ==================== FORM FOOTER ==================== */
+.form-footer {
+  text-align: center;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.toggle-mode-btn {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  letter-spacing: 0.5px;
+  padding: 4px 8px;
+}
+
+.toggle-mode-btn:hover:not(:disabled) { color: var(--color-primary-light); }
+.toggle-mode-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 480px) {
+  .form-container {
+    max-width: 100%;
+    margin: 8px;
+    padding: 20px 20px;
+    border-radius: 16px;
+  }
+
+  .form-title { font-size: 20px; }
+
+  .pin-digit { width: 48px; height: 56px; }
+
+  .keypad-btn { font-size: 15px; padding: 12px 8px; }
+}
+
+/* ✅ FIX SIZE: Màn hình thấp (tablet nằm ngang, laptop nhỏ) */
+@media (max-height: 700px) {
+  .form-container { padding: 18px 24px; }
+  .form-header { margin-bottom: 16px; }
+  .logo-icon { width: 40px; height: 40px; margin-bottom: 8px; }
+  .form-content { gap: 12px; }
+  .pin-digit { width: 48px; height: 54px; }
+  .pin-keypad { padding: 10px; gap: 8px; }
+  .keypad-btn { padding: 11px 8px; font-size: 15px; }
+}
+
+@media (max-height: 580px) {
+  .form-header { margin-bottom: 10px; }
+  .logo-icon { display: none; }
+  .form-content { gap: 10px; }
+}
+
+/* ✅ Tôn trọng người dùng tắt animation (accessibility) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  .ball { animation: none !important; }
+}

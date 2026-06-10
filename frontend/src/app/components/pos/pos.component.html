@@ -1,0 +1,446 @@
+﻿<div class="pos-shell" [class.dragging-active]="isDraggingProduct">
+
+  <!-- ═══════════ NAVBAR ═══════════ -->
+  <nav class="pos-nav">
+    <div class="nav-brand">
+      <div class="nav-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+      </div>
+      <div>
+        <span class="nav-label">POS System</span>
+        <h1 class="nav-title">CÀ PHÊ</h1>
+      </div>
+    </div>
+
+    <div class="nav-center">
+      <div class="nav-stat">
+        <span class="nav-stat-num">{{ cartItemCount }}</span>
+        <span class="nav-stat-label">món</span>
+      </div>
+      <div class="nav-divider"></div>
+      <div class="nav-stat">
+        <span class="nav-stat-num">{{ orderTotal | number }}<small>đ</small></span>
+        <span class="nav-stat-label">tổng</span>
+      </div>
+    </div>
+
+    <div class="nav-right">
+      <div class="nav-user">
+        <div class="nav-avatar">{{ userName.charAt(0).toUpperCase() }}</div>
+        <div>
+          <p class="nav-user-label">Thu ngân</p>
+          <p class="nav-user-name">{{ userName }}</p>
+        </div>
+      </div>
+      <button (click)="logout()" class="btn-logout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Đăng xuất
+      </button>
+    </div>
+  </nav>
+
+  <!-- ═══════════ MAIN LAYOUT ═══════════ -->
+  <div class="pos-body">
+
+    <!-- ═══ LEFT: PRODUCT LIST ═══ -->
+    <section class="product-panel">
+
+      <!-- Toolbar -->
+      <div class="product-toolbar">
+        <div class="search-wrap">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input
+            type="text"
+            [(ngModel)]="searchQuery"
+            (input)="filterProducts()"
+            placeholder="Tìm kiếm món..."
+            class="search-input"
+          />
+        </div>
+        <div class="cat-tabs">
+          <button class="cat-tab" [class.active]="selectedCategory === ''" (click)="selectType('')">Tất cả</button>
+          <button class="cat-tab" [class.active]="selectedCategory === 'Cà phê'" (click)="selectType('Cà phê')">☕ Cà phê</button>
+          <button class="cat-tab" [class.active]="selectedCategory === 'Trà'" (click)="selectType('Trà')">🍵 Trà</button>
+          <button class="cat-tab" [class.active]="selectedCategory === 'Nước ép'" (click)="selectType('Nước ép')">🍊 Nước ép</button>
+        </div>
+      </div>
+
+      <!-- Drag hint -->
+      <p class="drag-hint" *ngIf="filteredProducts.length > 0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 9l4-4 4 4"/><path d="M9 5v14"/><path d="M19 15l-4 4-4-4"/><path d="M15 19V5"/></svg>
+        Kéo thả sản phẩm vào giỏ hàng hoặc bấm "Thêm"
+      </p>
+
+      <!-- Product Grid — CDK source list -->
+      <div
+        cdkDropList
+        #productList="cdkDropList"
+        [cdkDropListData]="filteredProducts"
+        [cdkDropListConnectedTo]="[cartDropZone]"
+        cdkDropListSortingDisabled
+        class="product-grid"
+      >
+        <div
+          *ngFor="let product of filteredProducts; trackBy: trackById"
+          cdkDrag
+          [cdkDragData]="product"
+          (cdkDragStarted)="onProductDragStarted(product)"
+          (cdkDragEnded)="onProductDragEnded()"
+          class="product-card"
+          [@slideIn]
+        >
+          <!-- Drag preview -->
+          <div *cdkDragPreview class="drag-preview">
+            <img [src]="product.imageUrl" [alt]="product.name" />
+            <span>{{ product.name }}</span>
+          </div>
+          <!-- Drag placeholder -->
+          <div *cdkDragPlaceholder class="drag-placeholder"></div>
+
+          <div class="product-img-wrap">
+            <img [src]="product.imageUrl" [alt]="product.name" class="product-img" loading="lazy" />
+            <span class="product-badge">{{ product.category }}</span>
+            <div class="product-drag-handle" cdkDragHandle>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+            </div>
+          </div>
+          <div class="product-info">
+            <h3 class="product-name">{{ product.name }}</h3>
+            <p class="product-desc">{{ product.description }}</p>
+            <div class="product-footer">
+              <span class="product-price">{{ product.price | number }}đ</span>
+              <button (click)="addToOrder(product)" class="btn-add">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Thêm
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="filteredProducts.length === 0" class="empty-products">
+        <span>🔍</span>
+        <p>Không tìm thấy món phù hợp</p>
+      </div>
+    </section>
+
+    <!-- ═══ RIGHT: CART ═══ -->
+    <aside class="cart-panel" [class.cart-drop-active]="isOverCart">
+
+      <!-- Cart header -->
+      <div class="cart-header">
+        <div>
+          <p class="cart-label">Đơn hàng</p>
+          <h2 class="cart-title">Giỏ hàng <span class="cart-badge" *ngIf="cartItemCount > 0">{{ cartItemCount }}</span></h2>
+        </div>
+        <div class="order-type-toggle">
+          <button [class.active]="orderType === 'Dine-in'" (click)="orderType = 'Dine-in'">🪑 Tại bàn</button>
+          <button [class.active]="orderType === 'Takeaway'" (click)="orderType = 'Takeaway'">🥤 Mang về</button>
+        </div>
+      </div>
+
+      <!-- Table input -->
+      <div class="table-input-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="3"/></svg>
+        <input type="text" [(ngModel)]="tableNumber" placeholder="Bàn số / Ghi chú..." class="table-input" />
+      </div>
+
+      <!-- Drop zone + cart items -->
+      <div
+        cdkDropList
+        #cartDropZone="cdkDropList"
+        [cdkDropListData]="orderItems"
+        [cdkDropListConnectedTo]="[productList, 'trashList']"
+        (cdkDropListEntered)="onCartDragEnter()"
+        (cdkDropListExited)="onCartDragLeave()"
+        (cdkDropListDropped)="onDropIntoCart($event)"
+        class="cart-items-list"
+        [class.empty]="orderItems.length === 0"
+      >
+        <!-- Drop hint khi đang kéo -->
+        <div class="cart-drop-hint" *ngIf="isDraggingProduct">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v20M2 12h20"/></svg>
+          <p>Thả vào đây để thêm</p>
+        </div>
+
+        <!-- Empty state -->
+        <div class="cart-empty" *ngIf="orderItems.length === 0 && !isDraggingProduct">
+          <div class="cart-empty-icon">🛒</div>
+          <p>Chưa có món nào</p>
+          <small>Kéo thả hoặc bấm "Thêm" để bắt đầu</small>
+        </div>
+
+        <!-- Order items — swipe to delete + drag to reorder -->
+        <div
+          *ngFor="let item of orderItems; trackBy: trackByProductId"
+          cdkDrag
+          [cdkDragData]="item"
+          (cdkDragStarted)="onCartItemDragStarted(item)"
+          (cdkDragDropped)="onDropReorder($event)"
+          class="cart-item"
+          [style.transform]="'translateX(' + item.swipeOffset + 'px)'"
+          (touchstart)="onTouchStart($event, item)"
+          (touchmove)="onTouchMove($event, item)"
+          (touchend)="onTouchEnd(item)"
+          [@slideIn]
+        >
+          <div *cdkDragPlaceholder class="cart-item-placeholder"></div>
+
+          <!-- Delete reveal (swipe left) -->
+          <div class="swipe-delete-bg">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            Xóa
+          </div>
+
+          <div class="cart-item-inner">
+            <div class="cart-item-drag-handle" cdkDragHandle>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg>
+            </div>
+
+            <img [src]="item.product.imageUrl" [alt]="item.product.name" class="cart-item-img" />
+
+            <div class="cart-item-info">
+              <p class="cart-item-name">{{ item.product.name }}</p>
+              <p class="cart-item-price">{{ item.product.price | number }}đ × {{ item.quantity }} = <strong>{{ item.product.price * item.quantity | number }}đ</strong></p>
+            </div>
+
+            <div class="cart-item-qty">
+              <button (click)="changeQuantity(item, -1)" class="qty-btn">−</button>
+              <span class="qty-num">{{ item.quantity }}</span>
+              <button (click)="changeQuantity(item, 1)" class="qty-btn">+</button>
+            </div>
+
+            <button (click)="removeItem(item)" class="cart-item-remove">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        *ngIf="isDraggingCartItem"
+        cdkDropList
+        id="trashList"
+        #trashZone="cdkDropList"
+        [cdkDropListConnectedTo]="[cartDropZone]"
+        (cdkDropListDropped)="onDropToTrash($event)"
+        (cdkDropListEntered)="onTrashDragEnter()"
+        (cdkDropListExited)="onTrashDragLeave()"
+        class="trash-drop-zone"
+        [class.active]="isOverTrash"
+        style="margin-top:1rem;padding:1rem 1.25rem;border:2px dashed rgba(220,38,38,0.75);border-radius:1rem;text-align:center;color:#991b1b;background:rgba(254,226,226,0.9);display:flex;align-items:center;justify-content:center;gap:0.75rem;font-weight:600;"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex-shrink:0;">
+          <path d="M3 6h18"/>
+          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+          <path d="M10 11v6"/>
+          <path d="M14 11v6"/>
+        </svg>
+        Kéo sản phẩm vào đây để xóa
+      </div>
+
+      <!-- Discount -->
+      <div class="discount-row">
+        <div class="discount-label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          Chiết khấu
+        </div>
+        <div class="discount-input-wrap">
+          <input
+            type="number"
+            [(ngModel)]="discountPercent"
+            (change)="clampDiscount()"
+            min="0"
+            max="100"
+            placeholder="0"
+            class="discount-input"
+          />
+          <span class="discount-unit">%</span>
+        </div>
+        <span class="discount-amount" *ngIf="discountAmount > 0">−{{ discountAmount | number }}đ</span>
+      </div>
+
+      <!-- Summary -->
+      <div class="cart-summary">
+        <div class="summary-row">
+          <span>Tạm tính</span>
+          <span>{{ subtotal | number }}đ</span>
+        </div>
+        <div class="summary-row discount" *ngIf="discountAmount > 0">
+          <span>Giảm giá ({{ discountPercent }}%)</span>
+          <span>−{{ discountAmount | number }}đ</span>
+        </div>
+        <div class="summary-divider"></div>
+        <div class="summary-row total">
+          <span>TỔNG CỘNG</span>
+          <span>{{ orderTotal | number }}đ</span>
+        </div>
+      </div>
+
+      <button
+        (click)="openPaymentModal()"
+        [disabled]="orderItems.length === 0"
+        class="btn-checkout"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        Thanh toán {{ orderTotal | number }}đ
+      </button>
+    </aside>
+  </div>
+</div>
+
+<!-- ═══════════ PAYMENT MODAL ═══════════ -->
+<div class="modal-backdrop" *ngIf="showPaymentModal" [@modalBackdrop] (click)="closePaymentModal()">
+  <div class="modal" [@fadeScale] (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Xác nhận thanh toán</h2>
+      <button class="modal-close" (click)="closePaymentModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- Order summary in modal -->
+    <div class="modal-order-summary">
+      <div class="modal-items">
+        <div class="modal-item" *ngFor="let item of orderItems">
+          <span>{{ item.product.name }} × {{ item.quantity }}</span>
+          <span>{{ item.product.price * item.quantity | number }}đ</span>
+        </div>
+        <div class="modal-item discount-line" *ngIf="discountAmount > 0">
+          <span>Chiết khấu {{ discountPercent }}%</span>
+          <span>−{{ discountAmount | number }}đ</span>
+        </div>
+      </div>
+      <div class="modal-total">
+        <span>Tổng thanh toán</span>
+        <span class="modal-total-num">{{ orderTotal | number }}đ</span>
+      </div>
+    </div>
+
+    <!-- Payment method tabs -->
+    <div class="payment-tabs">
+      <button
+        [class.active]="paymentMethod === 'cash'"
+        (click)="paymentMethod = 'cash'"
+        class="payment-tab"
+      >
+        💵 Tiền mặt
+      </button>
+      <button
+        [class.active]="paymentMethod === 'transfer'"
+        (click)="paymentMethod = 'transfer'"
+        class="payment-tab"
+      >
+        📱 Chuyển khoản
+      </button>
+    </div>
+
+    <!-- Cash payment -->
+    <div class="payment-section" *ngIf="paymentMethod === 'cash'">
+      <label class="pay-label">Tiền khách đưa</label>
+      <div class="cash-input-wrap">
+        <input
+          type="number"
+          [(ngModel)]="cashReceived"
+          [min]="orderTotal"
+          placeholder="Nhập số tiền..."
+          class="cash-input"
+        />
+        <span class="cash-unit">đ</span>
+      </div>
+      <!-- Quick amounts -->
+      <div class="quick-amounts">
+        <button *ngFor="let amt of [50000, 100000, 200000, 500000]" (click)="cashReceived = amt" class="quick-amt" [class.active]="cashReceived === amt">
+          {{ amt | number }}đ
+        </button>
+      </div>
+      <div class="change-row" *ngIf="cashReceived && cashReceived >= orderTotal">
+        <span>Tiền thối lại</span>
+        <span class="change-amount">{{ change | number }}đ</span>
+      </div>
+      <div class="change-row error" *ngIf="cashReceived && cashReceived < orderTotal">
+        <span>⚠️ Tiền đưa chưa đủ</span>
+        <span>Còn thiếu {{ orderTotal - cashReceived | number }}đ</span>
+      </div>
+    </div>
+
+    <!-- QR Transfer -->
+    <div class="payment-section" *ngIf="paymentMethod === 'transfer'">
+      <div class="qr-wrap">
+        <img [src]="qrUrl" alt="VietQR" class="qr-img" />
+        <div class="qr-info">
+          <p class="qr-bank">{{ BANK_ID }}</p>
+          <p class="qr-account">{{ ACCOUNT_NO }}</p>
+          <p class="qr-name">{{ ACCOUNT_NAME }}</p>
+          <p class="qr-amount">{{ orderTotal | number }}đ</p>
+        </div>
+      </div>
+      <p class="qr-note">Scan mã QR để chuyển khoản. Xác nhận sau khi nhận tiền.</p>
+    </div>
+
+    <button
+      (click)="confirmPayment()"
+      [disabled]="paymentMethod === 'cash' && (!cashReceived || cashReceived < orderTotal)"
+      class="btn-confirm-pay"
+    >
+      ✓ Xác nhận thanh toán
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════ SUCCESS MODAL / BILL ═══════════ -->
+<div class="modal-backdrop success-backdrop" *ngIf="showSuccessModal" [@modalBackdrop]>
+  <div class="modal bill-modal" [@fadeScale]>
+    <div class="bill-header">
+      <div class="bill-logo">☕</div>
+      <h2>CÀ PHÊ POS</h2>
+      <p>Đơn hàng #{{ orderNumber }}</p>
+      <p class="bill-date">{{ orderType }} · {{ tableNumber || 'Không có ghi chú' }}</p>
+    </div>
+
+    <div class="bill-items">
+      <div class="bill-item" *ngFor="let item of orderItems">
+        <span class="bill-item-name">{{ item.product.name }}</span>
+        <span>×{{ item.quantity }}</span>
+        <span class="bill-item-price">{{ item.product.price * item.quantity | number }}đ</span>
+      </div>
+    </div>
+
+    <div class="bill-summary">
+      <div class="bill-row" *ngIf="discountAmount > 0">
+        <span>Chiết khấu ({{ discountPercent }}%)</span>
+        <span>−{{ discountAmount | number }}đ</span>
+      </div>
+      <div class="bill-row total">
+        <span>TỔNG</span>
+        <span>{{ orderTotal | number }}đ</span>
+      </div>
+      <div class="bill-row" *ngIf="paymentMethod === 'cash' && cashReceived">
+        <span>Tiền nhận</span>
+        <span>{{ cashReceived | number }}đ</span>
+      </div>
+      <div class="bill-row change" *ngIf="paymentMethod === 'cash' && cashReceived">
+        <span>Tiền thối</span>
+        <span>{{ change | number }}đ</span>
+      </div>
+      <div class="bill-row" *ngIf="paymentMethod === 'transfer'">
+        <span>Thanh toán</span>
+        <span>Chuyển khoản</span>
+      </div>
+    </div>
+
+    <p class="bill-thanks">Cảm ơn quý khách! Hẹn gặp lại ☕</p>
+
+    <div class="bill-actions no-print">
+      <button (click)="printBill()" class="btn-print">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        In bill
+      </button>
+      <button (click)="closeSuccessAndReset()" class="btn-new-order">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Đơn mới
+      </button>
+    </div>
+  </div>
+</div>

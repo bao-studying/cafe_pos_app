@@ -1,0 +1,162 @@
+<div class="login-wrapper">
+  <div class="background-layer">
+    <div class="gradient-overlay"></div>
+    <canvas id="particleCanvas" class="particle-canvas"></canvas>
+  </div>
+
+  <div class="floating-elements">
+    <div class="ball ball-1"></div>
+    <div class="ball ball-2"></div>
+    <div class="ball ball-3"></div>
+  </div>
+
+  <div class="form-container">
+    <div class="form-header">
+      <div class="logo-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M12 6v6l4 2"></path>
+        </svg>
+      </div>
+      <h1 class="form-title">POS CÀ PHÊ</h1>
+      <p class="form-subtitle">
+        {{ isLoginMode ? 'Nhập PIN để mở ca thu ngân' : 'Tạo tài khoản thu ngân' }}
+      </p>
+    </div>
+
+    @if (errorMessage) {
+      <div class="message message-error">
+        <span class="message-icon">⚠️</span>
+        <span>{{ errorMessage }}</span>
+      </div>
+    }
+    @if (successMessage) {
+      <div class="message message-success">
+        <span class="message-icon">✓</span>
+        <span>{{ successMessage }}</span>
+      </div>
+    }
+
+    <div class="form-content">
+      @if (!isLoginMode) {
+        <div class="form-group fade-in-1">
+          <label>Họ và tên</label>
+          <input
+            type="text"
+            [(ngModel)]="name"
+            name="name"
+            [disabled]="isLoading"
+            placeholder="Nhập họ tên của bạn"
+            class="form-input"
+          />
+        </div>
+      }
+
+      <div class="form-group" [ngClass]="isLoginMode ? 'fade-in-1' : 'fade-in-2'">
+        <label>Số điện thoại</label>
+        <input
+          type="tel"
+          [(ngModel)]="phone"
+          name="phone"
+          [disabled]="isLoading"
+          placeholder="Nhập số điện thoại"
+          class="form-input"
+          maxlength="11"
+          autocomplete="tel"
+        />
+      </div>
+
+      <div class="form-group" [ngClass]="isLoginMode ? 'fade-in-2' : 'fade-in-3'">
+        <label>Mã PIN</label>
+        <div class="pin-container" (click)="focusHiddenInput()">
+          <div class="pin-input-wrapper">
+            <!-- ✅ FIX LAG: trackBy ngăn re-render toàn bộ list mỗi lần -->
+            <div
+              *ngFor="let i of PIN_DIGITS; trackBy: trackByIndex"
+              class="pin-digit"
+              [class.filled]="password.length > i"
+              [class.active]="password.length === i"
+            >
+              @if (password.length > i) {
+                <span class="pin-dot"></span>
+              }
+            </div>
+          </div>
+          <!-- ✅ FIX LAG: Bỏ [(ngModel)] trên input PIN — chỉ dùng keydown event -->
+          <input
+            #pinInput
+            type="password"
+            name="pinHidden"
+            maxlength="4"
+            (keydown)="onPasswordKeydown($event)"
+            [disabled]="isLoading"
+            class="pin-real-input"
+            autocomplete="current-password"
+            readonly
+          />
+        </div>
+      </div>
+
+      <div class="pin-keypad" [ngClass]="isLoginMode ? 'fade-in-3' : 'fade-in-4'">
+        <div class="keypad-grid">
+          <button
+            *ngFor="let digit of [1,2,3,4,5,6,7,8,9]; trackBy: trackByIndex"
+            type="button"
+            (click)="appendPasswordDigit(digit)"
+            [disabled]="isLoading || password.length >= 4"
+            class="keypad-btn"
+          >
+            {{ digit }}
+          </button>
+        </div>
+        <div class="keypad-actions">
+          <button
+            type="button"
+            (click)="removeLastDigit()"
+            [disabled]="isLoading || password.length === 0"
+            class="keypad-btn keypad-backspace"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path>
+              <line x1="18" y1="9" x2="12" y2="15"></line>
+              <line x1="12" y1="9" x2="18" y2="15"></line>
+            </svg>
+          </button>
+          <button
+            type="button"
+            (click)="appendPasswordDigit(0)"
+            [disabled]="isLoading || password.length >= 4"
+            class="keypad-btn"
+          >
+            0
+          </button>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        (click)="onSubmit()"
+        [disabled]="isLoading"
+        class="submit-btn"
+        [class.loading]="isLoading"
+      >
+        @if (isLoading) {
+          <span class="spinner"></span>
+        } @else {
+          {{ isLoginMode ? 'MỞ CA' : 'ĐĂNG KÝ' }}
+        }
+      </button>
+
+      <div class="form-footer">
+        <button
+          type="button"
+          (click)="triggerTransition()"
+          [disabled]="isLoading"
+          class="toggle-mode-btn"
+        >
+          {{ isLoginMode ? 'Chưa có tài khoản?' : 'Đã có tài khoản?' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
