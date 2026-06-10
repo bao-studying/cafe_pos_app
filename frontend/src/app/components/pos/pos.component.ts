@@ -20,7 +20,7 @@ import {
   CdkDropList,
 } from '@angular/cdk/drag-drop';
 import { trigger, transition, style, animate, state } from '@angular/animations';
-
+import { ProductService } from '../../services/product.service';  
 export interface Product {
   id: string;
   name: string;
@@ -185,20 +185,43 @@ export class PosComponent implements OnInit {
 
   constructor(
     private authService: AuthService,
+    private productService: ProductService,
     private router: Router,
     private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit() {
-    this.filteredProducts = [...this.allProducts];
-    this.productDragList = [...this.allProducts];
+    this.productService.getProducts().subscribe({
+      next: (response: any) => {
+        // 1. Kiểm tra xem nếu response là mảng thì dùng luôn,
+        // nếu response là Object chứa thuộc tính 'data' hoặc 'products' thì lấy cái đó.
+        let productArray: Product[] = [];
 
-    // Lấy thông tin user từ AuthService
-    try {
-      this.currentUser = this.authService.getUser?.() ?? this.authService.getProfile?.() ?? null;
-    } catch {
-      this.currentUser = null;
-    }
+        if (Array.isArray(response)) {
+          productArray = response;
+        } else if (response && Array.isArray(response.data)) {
+          productArray = response.data; // Trường hợp BE trả về { data: [...] }
+        } else if (response && Array.isArray(response.products)) {
+          productArray = response.products; // Trường hợp BE trả về { products: [...] }
+        } else {
+          console.error('Dữ liệu API trả về không đúng định dạng mảng:', response);
+          return;
+        }
+
+        // 🔥 LOGIC CỐT LÕI: Bây giờ lọc trên mảng chuẩn chắc chắn không lỗi
+        this.allProducts = productArray.filter((p) => p.category !== 'Nguyên liệu');
+
+        // Cập nhật lại các mảng bổ trợ cho giao diện POS
+        this.filteredProducts = [...this.allProducts];
+        this.productDragList = [...this.allProducts];
+
+        // Ép Angular render lại giao diện
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        console.error('Không thể tải danh sách sản phẩm từ DB:', err);
+      },
+    });
   }
 
   // ── Getters ───────────────────────────────────────────
