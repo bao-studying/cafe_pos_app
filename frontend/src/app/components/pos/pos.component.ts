@@ -1,26 +1,13 @@
-import {
-  Component,
-  OnInit,
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  HostListener,
-  ElementRef,
-  ViewChild,
-} from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
-import {
-  CdkDragDrop,
-  DragDropModule,
-  moveItemInArray,
-  transferArrayItem,
-  CdkDrag,
-  CdkDropList,
-} from '@angular/cdk/drag-drop';
-import { trigger, transition, style, animate, state } from '@angular/animations';
-import { ProductService } from '../../services/product.service';  
+import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
+import { trigger, transition, style, animate } from '@angular/animations';
+import { ProductService } from '../../services/product.service';
+import { HttpClient } from '@angular/common/http';
+
 export interface Product {
   id: string;
   name: string;
@@ -30,12 +17,24 @@ export interface Product {
   imageUrl: string;
 }
 
+export interface Topping {
+  id: string;
+  name: string;
+  price: number;
+}
+
 export interface OrderItem {
+  uid: string;
   product: Product;
   quantity: number;
-  size: string;
-  toppings: string[];
-  // Swipe state
+  // Options
+  size: 'S' | 'M' | 'L';
+  temperature: 'hot' | 'ice' | 'warm';
+  sugarPercent: number; // 0 | 25 | 50 | 75 | 100
+  toppings: Topping[]; // selected toppings
+  itemDiscountPercent: number; // % giảm riêng món này
+  note: string;
+  // Swipe state (touch)
   swipeOffset: number;
   isDragging: boolean;
   touchStartX: number;
@@ -43,33 +42,34 @@ export interface OrderItem {
 
 export type PaymentMethod = 'cash' | 'transfer';
 
+const SIZE_MULTIPLIER: Record<string, number> = { S: 0.9, M: 1.0, L: 1.2 };
+
 @Component({
   selector: 'app-pos',
   standalone: true,
   imports: [CommonModule, FormsModule, DragDropModule],
   templateUrl: './pos.component.html',
   styleUrl: './pos.component.css',
-  changeDetection: ChangeDetectionStrategy.OnPush,
   animations: [
     trigger('slideIn', [
       transition(':enter', [
-        style({ opacity: 0, transform: 'translateY(16px)' }),
+        style({ opacity: 0, transform: 'translateY(14px)' }),
         animate(
-          '300ms cubic-bezier(0.34,1.56,0.64,1)',
+          '280ms cubic-bezier(0.34,1.56,0.64,1)',
           style({ opacity: 1, transform: 'translateY(0)' }),
         ),
       ]),
       transition(':leave', [
-        animate('200ms ease-in', style({ opacity: 0, transform: 'translateX(100%)' })),
+        animate('180ms ease-in', style({ opacity: 0, transform: 'translateX(100%)' })),
       ]),
     ]),
     trigger('fadeScale', [
       transition(':enter', [
         style({ opacity: 0, transform: 'scale(0.95)' }),
-        animate('250ms ease-out', style({ opacity: 1, transform: 'scale(1)' })),
+        animate('220ms ease-out', style({ opacity: 1, transform: 'scale(1)' })),
       ]),
       transition(':leave', [
-        animate('200ms ease-in', style({ opacity: 0, transform: 'scale(0.95)' })),
+        animate('180ms ease-in', style({ opacity: 0, transform: 'scale(0.95)' })),
       ]),
     ]),
     trigger('modalBackdrop', [
@@ -77,156 +77,152 @@ export type PaymentMethod = 'cash' | 'transfer';
         style({ opacity: 0 }),
         animate('200ms ease-out', style({ opacity: 1 })),
       ]),
-      transition(':leave', [animate('200ms ease-in', style({ opacity: 0 }))]),
+      transition(':leave', [animate('180ms ease-in', style({ opacity: 0 }))]),
     ]),
   ],
 })
 export class PosComponent implements OnInit {
-  // ── User ──────────────────────────────────────────────
   currentUser: any = null;
 
   // ── Products ──────────────────────────────────────────
   searchQuery = '';
   selectedCategory = '';
-
-  allProducts: Product[] = [
-    {
-      id: '1',
-      name: 'Cà phê sữa đá',
-      category: 'Cà phê',
-      description: 'Đậm vị, thêm đá lạnh, ngọt vừa phải.',
-      price: 32000,
-      imageUrl:
-        'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=800&auto=format&fit=crop',
-    },
-    {
-      id: '2',
-      name: 'Trà sữa trân châu',
-      category: 'Trà',
-      description: 'Trà sữa béo ngậy với trân châu mềm dai.',
-      price: 39000,
-      imageUrl:
-        'https://images.unsplash.com/photo-1510627498534-cf7e9002facc?q=80&w=800&auto=format&fit=crop',
-    },
-    {
-      id: '3',
-      name: 'Nước ép cam mật ong',
-      category: 'Nước ép',
-      description: 'Tươi mát, thanh ngọt tự nhiên.',
-      price: 45000,
-      imageUrl:
-        'https://images.unsplash.com/photo-1542444459-db242f4e6f56?q=80&w=800&auto=format&fit=crop',
-    },
-    {
-      id: '4',
-      name: 'Cà phê đen đá',
-      category: 'Cà phê',
-      description: 'Sự lựa chọn chuẩn vị cho người thích đắng.',
-      price: 28000,
-      imageUrl:
-        'https://images.unsplash.com/photo-1511920170033-f8396924c348?q=80&w=800&auto=format&fit=crop',
-    },
-    {
-      id: '5',
-      name: 'Trà chanh mật ong',
-      category: 'Trà',
-      description: 'Sảng khoái với chanh tươi và mật ong thiên nhiên.',
-      price: 35000,
-      imageUrl:
-        'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?q=80&w=800&auto=format&fit=crop',
-    },
-    {
-      id: '6',
-      name: 'Bạc xỉu',
-      category: 'Cà phê',
-      description: 'Nhiều sữa ít cà phê, thơm béo dịu nhẹ.',
-      price: 30000,
-      imageUrl:
-        'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?q=80&w=800&auto=format&fit=crop',
-    },
-  ];
-
+  allProducts: Product[] = [];
   filteredProducts: Product[] = [];
+
+  // ── Toppings (load từ API) ────────────────────────────
+  availableToppings: Topping[] = [];
 
   // ── Order ─────────────────────────────────────────────
   orderItems: OrderItem[] = [];
   tableNumber = '';
   orderType: 'Dine-in' | 'Takeaway' = 'Dine-in';
 
-  // ── Discount ──────────────────────────────────────────
+  // ── Discount toàn đơn ─────────────────────────────────
   discountPercent: number | null = null;
 
   // ── Payment ───────────────────────────────────────────
   paymentMethod: PaymentMethod = 'cash';
   cashReceived: number | null = null;
-
+  cashReceivedRaw: number | null = null;
   // ── QR ────────────────────────────────────────────────
-  // VietQR - thay bằng thông tin thật của quán
-  readonly BANK_ID = 'MB'; // Mã ngân hàng VietQR
+  readonly BANK_ID = 'MB';
   readonly ACCOUNT_NO = '0123456789';
   readonly ACCOUNT_NAME = 'QUAN CA PHE';
 
   // ── Drag drop ─────────────────────────────────────────
   isDraggingProduct = false;
   isDraggingCartItem = false;
+  draggedProduct: Product | null = null;
   isOverCart = false;
   isOverTrash = false;
-  draggedProduct: Product | null = null;
-  draggedCartItem: OrderItem | null = null;
 
   // ── Modal ─────────────────────────────────────────────
   showPaymentModal = false;
   showSuccessModal = false;
   orderNumber = 0;
 
-  // ── Drop zone (cart) ──────────────────────────────────
-  cartDropItems: Product[] = []; // dummy list cho CDK drop zone
-  productDragList: Product[] = [];
+  // ── Item note popup ───────────────────────────────────
+  showItemPopup = false;
+  editingItem: OrderItem | null = null;
+  // Draft state (áp dụng khi bấm "Xác nhận")
+  draft: {
+    size: 'S' | 'M' | 'L';
+    temperature: 'hot' | 'ice' | 'warm';
+    sugarPercent: number;
+    toppings: Topping[];
+    itemDiscountPercent: number;
+    note: string;
+  } = this.emptyDraft();
+
+  readonly SUGAR_OPTIONS = [0, 25, 50, 75, 100];
+  readonly SIZE_LABELS: Record<string, string> = { S: 'S (−10%)', M: 'M', L: 'L (+20%)' };
+  readonly TEMP_LABELS: Record<string, string> = { hot: '🔥 Nóng', ice: '🧊 Đá', warm: '☀️ Ấm' };
 
   constructor(
     private authService: AuthService,
     private productService: ProductService,
+    private http: HttpClient,
     private router: Router,
-    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit() {
+    this.loadProducts();
+    this.loadToppings();
+  }
+
+  private loadProducts() {
     this.productService.getProducts().subscribe({
       next: (response: any) => {
-        // 1. Kiểm tra xem nếu response là mảng thì dùng luôn,
-        // nếu response là Object chứa thuộc tính 'data' hoặc 'products' thì lấy cái đó.
-        let productArray: Product[] = [];
-
-        if (Array.isArray(response)) {
-          productArray = response;
-        } else if (response && Array.isArray(response.data)) {
-          productArray = response.data; // Trường hợp BE trả về { data: [...] }
-        } else if (response && Array.isArray(response.products)) {
-          productArray = response.products; // Trường hợp BE trả về { products: [...] }
-        } else {
-          console.error('Dữ liệu API trả về không đúng định dạng mảng:', response);
+        let arr: any[] = [];
+        if (Array.isArray(response)) arr = response;
+        else if (Array.isArray(response?.data)) arr = response.data;
+        else if (Array.isArray(response?.products)) arr = response.products;
+        else {
+          console.error('API products sai format', response);
           return;
         }
 
-        // 🔥 LOGIC CỐT LÕI: Bây giờ lọc trên mảng chuẩn chắc chắn không lỗi
-        this.allProducts = productArray.filter((p) => p.category !== 'Nguyên liệu');
-
-        // Cập nhật lại các mảng bổ trợ cho giao diện POS
+        this.allProducts = arr
+          .map((p) => this.normalizeProduct(p))
+          .filter((p) => p.category !== 'Nguyên liệu');
         this.filteredProducts = [...this.allProducts];
-        this.productDragList = [...this.allProducts];
-
-        // Ép Angular render lại giao diện
-        this.cdr.markForCheck();
       },
-      error: (err) => {
-        console.error('Không thể tải danh sách sản phẩm từ DB:', err);
+      error: (err) => console.error('Không tải được sản phẩm:', err),
+    });
+  }
+
+  private normalizeProduct(product: any): Product {
+    return {
+      id: product.id ?? product._id ?? String(product._id ?? ''),
+      name: product.name ?? '',
+      category: product.category ?? '',
+      description: product.description ?? '',
+      price: Number(product.price ?? 0),
+      imageUrl: product.imageUrl ?? '',
+    };
+  }
+
+  private loadToppings() {
+    this.http.get<any>('/api/toppings').subscribe({
+      next: (res: any) => {
+        let arr: Topping[] = [];
+        if (Array.isArray(res)) arr = res;
+        else if (Array.isArray(res?.data)) arr = res.data;
+        else if (Array.isArray(res?.toppings)) arr = res.toppings;
+        this.availableToppings = arr;
+      },
+      error: () => {
+        // Fallback hardcode nếu API chưa có
+        this.availableToppings = [
+          { id: 't1', name: 'Trân châu đen', price: 5000 },
+          { id: 't2', name: 'Thạch cà phê', price: 5000 },
+          { id: 't3', name: 'Kem cheese', price: 8000 },
+          { id: 't4', name: 'Pudding', price: 7000 },
+          { id: 't5', name: 'Trân châu trắng', price: 5000 },
+        ];
       },
     });
   }
 
+  // ── Computed price cho 1 OrderItem ───────────────────
+  itemUnitPrice(item: OrderItem): number {
+    const base = Math.round(item.product.price * SIZE_MULTIPLIER[item.size]);
+    const toppingSum = item.toppings.reduce((s, t) => s + t.price, 0);
+    const beforeDiscount = base + toppingSum;
+    if (item.itemDiscountPercent > 0) {
+      return Math.round(beforeDiscount * (1 - item.itemDiscountPercent / 100));
+    }
+    return beforeDiscount;
+  }
+
+  itemLineTotal(item: OrderItem): number {
+    return this.itemUnitPrice(item) * item.quantity;
+  }
+
   // ── Getters ───────────────────────────────────────────
   get subtotal(): number {
-    return this.orderItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    return this.orderItems.reduce((s, item) => s + this.itemLineTotal(item), 0);
   }
 
   get discountAmount(): number {
@@ -244,29 +240,29 @@ export class PosComponent implements OnInit {
   }
 
   get qrUrl(): string {
-    const amount = this.orderTotal;
     const desc = encodeURIComponent(`Thanh toan don #${this.orderNumber || 'POS'}`);
-    return `https://img.vietqr.io/image/${this.BANK_ID}-${this.ACCOUNT_NO}-compact2.png?amount=${amount}&addInfo=${desc}&accountName=${encodeURIComponent(this.ACCOUNT_NAME)}`;
+    return `https://img.vietqr.io/image/${this.BANK_ID}-${this.ACCOUNT_NO}-compact2.png?amount=${this.orderTotal}&addInfo=${desc}&accountName=${encodeURIComponent(this.ACCOUNT_NAME)}`;
   }
 
   get userName(): string {
-    if (this.currentUser?.name) return this.currentUser.name;
-    if (this.currentUser?.fullName) return this.currentUser.fullName;
-    return 'Thu ngân';
+    return this.currentUser?.name ?? this.currentUser?.fullName ?? 'Thu ngân';
   }
 
   get cartItemCount(): number {
-    return this.orderItems.reduce((sum, i) => sum + i.quantity, 0);
+    return this.orderItems.reduce((s, i) => s + i.quantity, 0);
   }
 
-  // ── Product filter ────────────────────────────────────
-  filterProducts() {
+  // ── Search — realtime ─────────────────────────────────
+  // Gọi trực tiếp từ (input) event, không cần debounce thêm
+  filterProducts(query: string = this.searchQuery) {
+    this.searchQuery = query; // ← thêm dòng này để giữ sync
+    const q = query.toLowerCase().trim();
     this.filteredProducts = this.allProducts.filter((p) => {
-      const matchSearch = p.name.toLowerCase().includes(this.searchQuery.toLowerCase());
+      const matchSearch =
+        !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q);
       const matchCat = !this.selectedCategory || p.category === this.selectedCategory;
       return matchSearch && matchCat;
     });
-    this.cdr.markForCheck();
   }
 
   selectType(category: string) {
@@ -277,42 +273,128 @@ export class PosComponent implements OnInit {
   trackById(_: number, item: Product) {
     return item.id;
   }
-  trackByProductId(_: number, item: OrderItem) {
-    return item.product.id;
+  trackByOrderItem(_: number, item: OrderItem) {
+    return item.uid;
+  }
+  trackByToppingId(_: number, t: Topping) {
+    return t.id;
   }
 
   // ── Add to order ──────────────────────────────────────
   addToOrder(product: Product) {
-    const existing = this.orderItems.find((i) => i.product.id === product.id);
-    if (existing) {
-      existing.quantity++;
+    const idx = this.orderItems.findIndex((i) => i.product.id === product.id);
+    if (idx !== -1) {
+      this.orderItems[idx] = {
+        ...this.orderItems[idx],
+        quantity: this.orderItems[idx].quantity + 1,
+      };
+      this.orderItems = [...this.orderItems];
     } else {
-      this.orderItems.push({
-        product,
-        quantity: 1,
-        size: 'M',
-        toppings: [],
-        swipeOffset: 0,
-        isDragging: false,
-        touchStartX: 0,
-      });
+      this.orderItems = [...this.orderItems, this.makeOrderItem(product)];
     }
-    this.cdr.markForCheck();
+  }
+
+  private makeOrderItem(product: Product): OrderItem {
+    return {
+      uid: crypto.randomUUID(),
+      product,
+      quantity: 1,
+      size: 'M',
+      temperature: 'ice',
+      sugarPercent: 100,
+      toppings: [],
+      itemDiscountPercent: 0,
+      note: '',
+      swipeOffset: 0,
+      isDragging: false,
+      touchStartX: 0,
+    };
   }
 
   changeQuantity(item: OrderItem, delta: number) {
     const newQty = item.quantity + delta;
     if (newQty <= 0) {
       this.removeItem(item);
-    } else {
-      item.quantity = newQty;
+      return;
     }
-    this.cdr.markForCheck();
+    const idx = this.orderItems.indexOf(item);
+    if (idx !== -1) {
+      this.orderItems[idx] = { ...item, quantity: newQty };
+      this.orderItems = [...this.orderItems];
+    }
   }
 
   removeItem(item: OrderItem) {
-    this.orderItems = this.orderItems.filter((i) => i.product.id !== item.product.id);
-    this.cdr.markForCheck();
+    this.orderItems = this.orderItems.filter((i) => i.uid !== item.uid);
+  }
+
+  // ── Item Popup ────────────────────────────────────────
+  openItemPopup(item: OrderItem) {
+    this.editingItem = item;
+    this.draft = {
+      size: item.size,
+      temperature: item.temperature,
+      sugarPercent: item.sugarPercent,
+      toppings: [...item.toppings],
+      itemDiscountPercent: item.itemDiscountPercent,
+      note: item.note,
+    };
+    this.showItemPopup = true;
+  }
+
+  closeItemPopup() {
+    this.showItemPopup = false;
+    this.editingItem = null;
+  }
+
+  confirmItemPopup() {
+    if (!this.editingItem) return;
+    const idx = this.orderItems.findIndex((i) => i.uid === this.editingItem!.uid);
+    if (idx === -1) return;
+    this.orderItems[idx] = {
+      ...this.orderItems[idx],
+      size: this.draft.size,
+      temperature: this.draft.temperature,
+      sugarPercent: this.draft.sugarPercent,
+      toppings: [...this.draft.toppings],
+      itemDiscountPercent: this.draft.itemDiscountPercent,
+      note: this.draft.note,
+    };
+    this.orderItems = [...this.orderItems];
+    this.closeItemPopup();
+  }
+
+  isDraftToppingSelected(topping: Topping): boolean {
+    return this.draft.toppings.some((t) => t.id === topping.id);
+  }
+
+  toggleDraftTopping(topping: Topping) {
+    const idx = this.draft.toppings.findIndex((t) => t.id === topping.id);
+    if (idx >= 0) this.draft.toppings.splice(idx, 1);
+    else this.draft.toppings.push(topping);
+  }
+
+  /** Tính giá preview trong popup dựa trên draft */
+  get draftPreviewPrice(): number {
+    if (!this.editingItem) return 0;
+    const base = Math.round(this.editingItem.product.price * SIZE_MULTIPLIER[this.draft.size]);
+    const toppingSum = this.draft.toppings.reduce((s, t) => s + t.price, 0);
+    const beforeDiscount = base + toppingSum;
+    if (this.draft.itemDiscountPercent > 0) {
+      return Math.round(beforeDiscount * (1 - this.draft.itemDiscountPercent / 100));
+    }
+    return beforeDiscount;
+  }
+
+  private emptyDraft() {
+    return {
+      size: 'M' as const,
+      temperature: 'ice' as const,
+      sugarPercent: 100,
+      toppings: [] as Topping[],
+      itemDiscountPercent: 0,
+      note: '',
+    };
   }
 
   // ── Swipe to delete ───────────────────────────────────
@@ -324,92 +406,76 @@ export class PosComponent implements OnInit {
   onTouchMove(event: TouchEvent, item: OrderItem) {
     if (!item.isDragging) return;
     const dx = event.touches[0].clientX - item.touchStartX;
-    item.swipeOffset = Math.min(0, dx); // chỉ trái
-    this.cdr.markForCheck();
+    item.swipeOffset = Math.min(0, dx);
   }
 
   onTouchEnd(item: OrderItem) {
     item.isDragging = false;
-    if (item.swipeOffset < -80) {
-      this.removeItem(item);
-    } else {
-      item.swipeOffset = 0;
-    }
-    this.cdr.markForCheck();
+    if (item.swipeOffset < -80) this.removeItem(item);
+    else item.swipeOffset = 0;
   }
 
-  // ── CDK Drag: kéo product card vào giỏ ───────────────
+  // ── CDK Drag ──────────────────────────────────────────
+  // FIX: dùng event.item.data trực tiếp thay vì lưu state draggedProduct
   onProductDragStarted(product: Product) {
     this.isDraggingProduct = true;
-    this.draggedProduct = product;
     this.isDraggingCartItem = false;
-    this.cdr.markForCheck();
+    this.draggedProduct = product;
   }
 
-  onCartItemDragStarted(item: OrderItem) {
+  onCartItemDragStarted(_item: OrderItem) {
     this.isDraggingCartItem = true;
-    this.draggedCartItem = item;
     this.isDraggingProduct = false;
-    this.cdr.markForCheck();
   }
 
   onProductDragEnded() {
     this.isDraggingProduct = false;
     this.isDraggingCartItem = false;
-    this.draggedProduct = null;
-    this.draggedCartItem = null;
     this.isOverCart = false;
     this.isOverTrash = false;
-    this.cdr.markForCheck();
   }
 
   onCartDragEnter() {
     this.isOverCart = true;
-    this.cdr.markForCheck();
   }
-
   onCartDragLeave() {
     this.isOverCart = false;
-    this.cdr.markForCheck();
   }
 
   onDropIntoCart(event: CdkDragDrop<any, any, any>) {
     if (event.previousContainer !== event.container) {
-      const product = event.previousContainer.data[event.previousIndex] as Product;
-      if (product) this.addToOrder(product);
+      // FIX: lấy data trực tiếp từ event thay vì this.draggedProduct
+      const product: Product = this.draggedProduct ?? event.item.data;
+      if (product && product.id) {
+        this.addToOrder(product);
+      }
     }
+    this.draggedProduct = null;
     this.isOverCart = false;
     this.isDraggingProduct = false;
-    this.cdr.markForCheck();
   }
 
   onTrashDragEnter() {
     this.isOverTrash = true;
-    this.cdr.markForCheck();
   }
-
   onTrashDragLeave() {
     this.isOverTrash = false;
-    this.cdr.markForCheck();
   }
 
   onDropToTrash(event: CdkDragDrop<any, any, any>) {
     if (event.previousContainer !== event.container) {
-      const candidate = event.previousContainer.data[event.previousIndex];
+      const candidate = event.item.data;
       if (candidate && 'product' in candidate) {
         this.removeItem(candidate as OrderItem);
       }
     }
     this.isOverTrash = false;
     this.isDraggingCartItem = false;
-    this.cdr.markForCheck();
   }
 
-  // Kéo sắp xếp lại trong giỏ
   onDropReorder(event: CdkDragDrop<OrderItem[]>) {
     if (event.previousContainer === event.container) {
       moveItemInArray(this.orderItems, event.previousIndex, event.currentIndex);
-      this.cdr.markForCheck();
     }
   }
 
@@ -419,20 +485,17 @@ export class PosComponent implements OnInit {
       if (this.discountPercent < 0) this.discountPercent = 0;
       if (this.discountPercent > 100) this.discountPercent = 100;
     }
-    this.cdr.markForCheck();
   }
 
-  // ── Payment modal ─────────────────────────────────────
+  // ── Payment ───────────────────────────────────────────
   openPaymentModal() {
-    if (this.orderItems.length === 0) return;
+    if (!this.orderItems.length) return;
     this.cashReceived = null;
     this.showPaymentModal = true;
-    this.cdr.markForCheck();
   }
 
   closePaymentModal() {
     this.showPaymentModal = false;
-    this.cdr.markForCheck();
   }
 
   confirmPayment() {
@@ -444,7 +507,6 @@ export class PosComponent implements OnInit {
     this.orderNumber = Math.floor(1000 + Math.random() * 9000);
     this.showPaymentModal = false;
     this.showSuccessModal = true;
-    this.cdr.markForCheck();
   }
 
   printBill() {
@@ -459,12 +521,25 @@ export class PosComponent implements OnInit {
     this.discountPercent = null;
     this.cashReceived = null;
     this.paymentMethod = 'cash';
-    this.cdr.markForCheck();
   }
 
-  // ── Logout ────────────────────────────────────────────
   logout() {
     this.authService.clearToken();
     this.router.navigate(['/login']);
+  }
+
+  onCashInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const raw = input.value.replace(/\D/g, '');
+    this.cashReceived = raw ? Number(raw) : null;
+    // Đặt con trỏ về cuối sau khi format
+    const formatted = raw.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    input.value = formatted;
+  }
+
+  appendTripleZero(input: HTMLInputElement) {
+    const raw = (input.value.replace(/\D/g, '') || '0') + '000';
+    this.cashReceived = Number(raw);
+    input.value = raw.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
 }
