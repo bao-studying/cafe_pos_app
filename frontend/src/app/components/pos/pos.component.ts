@@ -7,6 +7,8 @@ import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-
 import { trigger, transition, style, animate } from '@angular/animations';
 import { ProductService } from '../../services/product.service';
 import { HttpClient } from '@angular/common/http';
+import {   HostListener } from '@angular/core';
+
 
 export interface Product {
   id: string;
@@ -83,7 +85,7 @@ const SIZE_MULTIPLIER: Record<string, number> = { S: 0.9, M: 1.0, L: 1.2 };
 })
 export class PosComponent implements OnInit {
   currentUser: any = null;
-
+  isUserMenuOpen = false;
   // ── Products ──────────────────────────────────────────
   searchQuery = '';
   selectedCategory = '';
@@ -116,6 +118,8 @@ export class PosComponent implements OnInit {
   draggedProduct: Product | null = null;
   isOverCart = false;
   isOverTrash = false;
+  // Biến hiện sản phẩm
+  isLoading = true;
 
   // ── Modal ─────────────────────────────────────────────
   showPaymentModal = false;
@@ -143,15 +147,18 @@ export class PosComponent implements OnInit {
     private authService: AuthService,
     private productService: ProductService,
     private http: HttpClient,
-    private router: Router,
+    public router: Router,
   ) {}
 
   ngOnInit() {
+    this.currentUser = this.authService.getUser();
+
     this.loadProducts();
     this.loadToppings();
   }
 
   private loadProducts() {
+    this.isLoading = true;
     this.productService.getProducts().subscribe({
       next: (response: any) => {
         let arr: any[] = [];
@@ -160,6 +167,7 @@ export class PosComponent implements OnInit {
         else if (Array.isArray(response?.products)) arr = response.products;
         else {
           console.error('API products sai format', response);
+          this.isLoading = false;
           return;
         }
 
@@ -167,8 +175,12 @@ export class PosComponent implements OnInit {
           .map((p) => this.normalizeProduct(p))
           .filter((p) => p.category !== 'Nguyên liệu');
         this.filteredProducts = [...this.allProducts];
+        this.isLoading = false;
       },
-      error: (err) => console.error('Không tải được sản phẩm:', err),
+      error: (err) => {
+        console.error('Không tải được sản phẩm:', err);
+        this.isLoading = false;
+      },
     });
   }
 
@@ -184,23 +196,22 @@ export class PosComponent implements OnInit {
   }
 
   private loadToppings() {
-    this.http.get<any>('/api/toppings').subscribe({
+    this.productService.getProducts().subscribe({
       next: (res: any) => {
-        let arr: Topping[] = [];
+        let arr: any[] = [];
         if (Array.isArray(res)) arr = res;
         else if (Array.isArray(res?.data)) arr = res.data;
-        else if (Array.isArray(res?.toppings)) arr = res.toppings;
-        this.availableToppings = arr;
+
+        this.availableToppings = arr
+          .filter((p) => p.category === 'Topping' && p.isActive !== false)
+          .map((p) => ({
+            id: p._id ?? p.id,
+            name: p.name,
+            price: Number(p.price ?? 0),
+          }));
       },
       error: () => {
-        // Fallback hardcode nếu API chưa có
-        this.availableToppings = [
-          { id: 't1', name: 'Trân châu đen', price: 5000 },
-          { id: 't2', name: 'Thạch cà phê', price: 5000 },
-          { id: 't3', name: 'Kem cheese', price: 8000 },
-          { id: 't4', name: 'Pudding', price: 7000 },
-          { id: 't5', name: 'Trân châu trắng', price: 5000 },
-        ];
+        this.availableToppings = [];
       },
     });
   }
@@ -250,6 +261,14 @@ export class PosComponent implements OnInit {
 
   get cartItemCount(): number {
     return this.orderItems.reduce((s, i) => s + i.quantity, 0);
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.nav-user-dropdown')) {
+      this.isUserMenuOpen = false;
+    }
   }
 
   // ── Search — realtime ─────────────────────────────────

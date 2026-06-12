@@ -61,7 +61,7 @@ app.use("/api/products", require("./routes/productRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"));
 app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/payment", require("./routes/paymentRoutes"));
-
+app.use("/api/stock", require("./routes/stockRoutes"));
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server đang chạy mượt mà trên port ${PORT}`);

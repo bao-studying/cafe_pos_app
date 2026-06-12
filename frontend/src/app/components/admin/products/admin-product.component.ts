@@ -2,7 +2,7 @@ import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { ProductService } from '../../services/product.service';
+import { ProductService } from '../../../services/product.service';
 
 export interface Product {
   _id?: string;
@@ -41,6 +41,7 @@ export class AdminProductComponent implements OnInit {
     'Sinh tố',
     'Nước ép',
     'Bánh ngọt',
+    'Topping',
     'Nguyên liệu',
   ];
 

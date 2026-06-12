@@ -1,0 +1,52 @@
+<div class="staff-stock-wrapper">
+  <header class="staff-header">
+    <h2>📋 Kiểm kho cuối ca</h2>
+    <p>Nhập số lượng thực tế còn lại cho từng nguyên liệu</p>
+  </header>
+
+  <div class="staff-list">
+    <div class="staff-row" *ngFor="let row of rows">
+      <div class="staff-row-top">
+        <img [src]="row.imageUrl || DEFAULT_IMAGE" class="staff-thumb" alt="img" />
+        <span class="staff-name">{{ row.name }}</span>
+      </div>
+
+      <div class="staff-inputs">
+        <div class="staff-input-group">
+          <label>{{ row.baseUnit }}</label>
+          <input
+            type="number"
+            min="0"
+            inputmode="decimal"
+            placeholder="0"
+            [(ngModel)]="row.actualBaseQty"
+          />
+        </div>
+        <span class="staff-plus">+</span>
+        <div class="staff-input-group">
+          <label>{{ row.subUnit }}</label>
+          <input
+            type="number"
+            min="0"
+            inputmode="decimal"
+            placeholder="0"
+            [(ngModel)]="row.actualSubQty"
+          />
+        </div>
+      </div>
+
+      <div class="staff-total" *ngIf="row.actualBaseQty !== null || row.actualSubQty !== null">
+        Tổng quy đổi: <b>{{ totalSub(row) }} {{ row.subUnit }}</b>
+      </div>
+    </div>
+  </div>
+
+  <div class="staff-note">
+    <label>Ghi chú</label>
+    <textarea rows="2" placeholder="Ví dụ: hao hụt do làm rơi vỡ..." [(ngModel)]="note"></textarea>
+  </div>
+
+  <button class="staff-submit-btn" [disabled]="isSubmitting" (click)="submit()">
+    {{ isSubmitting ? 'Đang gửi...' : '✅ Gửi báo cáo kiểm kho' }}
+  </button>
+</div>

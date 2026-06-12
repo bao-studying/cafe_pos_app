@@ -29,23 +29,56 @@
       </div>
     </div>
 
-    <div class="nav-right">
-      <div class="nav-user">
-        <div class="nav-avatar">{{ userName.charAt(0).toUpperCase() }}</div>
+ <div class="nav-right">
+  <div class="nav-user-dropdown" [class.open]="isUserMenuOpen" (clickOutside)="isUserMenuOpen = false">
+    <button class="nav-user-btn" (click)="isUserMenuOpen = !isUserMenuOpen">
+      <div class="nav-avatar">{{ userName.charAt(0).toUpperCase() }}</div>
+      <div class="nav-user-info">
+        <p class="nav-user-label">{{ currentUser?.role === 'admin' ? 'Quản trị viên' : 'Thu ngân' }}</p>
+        <p class="nav-user-name">{{ userName }}</p>
+      </div>
+      <svg class="nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </button>
+
+    <div class="nav-dropdown-menu" *ngIf="isUserMenuOpen">
+      <div class="dropdown-header">
+        <div class="nav-avatar lg">{{ userName.charAt(0).toUpperCase() }}</div>
         <div>
-          <p class="nav-user-label">Thu ngân</p>
-          <p class="nav-user-name">{{ userName }}</p>
+          <p class="dropdown-name">{{ userName }}</p>
+          <p class="dropdown-role">{{ currentUser?.role === 'admin' ? '👑 Quản trị viên' : '🧾 Thu ngân' }}</p>
         </div>
       </div>
-      <button (click)="logout()" class="btn-logout">
+
+      <div class="dropdown-divider"></div>
+
+      <button
+        *ngIf="currentUser?.role === 'admin'"
+        class="dropdown-item"
+        (click)="router.navigate(['/admin']); isUserMenuOpen = false"
+      >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-          <polyline points="16 17 21 12 16 7" />
-          <line x1="21" y1="12" x2="9" y2="12" />
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+          <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        </svg>
+        Trang quản trị
+      </button>
+
+      <div class="dropdown-divider"></div>
+
+      <button class="dropdown-item danger" (click)="logout(); isUserMenuOpen = false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
         </svg>
         Đăng xuất
       </button>
+      
     </div>
+  </div>
+</div>
   </nav>
 
   <!-- ═══════════ MAIN LAYOUT ═══════════ -->
@@ -118,6 +151,13 @@
             (click)="selectType('Nước ép')"
           >
             🍊 Nước ép
+          </button>
+          <button
+            class="cat-tab"
+            [class.active]="selectedCategory === 'Topping'"
+            (click)="selectType('Topping')"
+          >
+            🍬 Topping
           </button>
         </div>
       </div>
@@ -667,7 +707,6 @@
         <button
           *ngFor="let amt of [50000, 100000, 200000, 500000]"
           (click)="cashReceived = amt; cashInput.value = amt.toLocaleString('en-US')"
-          X
           class="quick-amt"
           [class.active]="cashReceived === amt"
         >

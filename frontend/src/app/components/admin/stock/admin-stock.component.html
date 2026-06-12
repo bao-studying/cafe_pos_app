@@ -1,0 +1,279 @@
+<div class="admin-dashboard-wrapper">
+  <div class="admin-main-container">
+
+    <header class="dashboard-header-premium">
+      <div class="header-left-group">
+        <button class="btn-modern-back" (click)="goBackToPos()">
+          <span class="icon-arrow">🧠</span> Trở về POS
+        </button>
+        <div class="header-text-titles">
+          <h2>Quản Lý Tồn Kho</h2>
+          <p class="subtitle">Theo dõi nguyên liệu, công thức & nhập kho</p>
+        </div>
+      </div>
+    </header>
+
+    <section class="premium-toolbar">
+      <div class="search-glass-wrapper">
+        <span class="glass-icon">🔍</span>
+        <input
+          type="text"
+          placeholder="Tìm nguyên liệu..."
+          [(ngModel)]="searchQuery"
+          (input)="applyFilter()"
+          class="input-premium-glass"
+        />
+      </div>
+    </section>
+
+    <main class="luxury-table-card">
+      <div class="table-scroll-container">
+        <table class="luxury-table">
+          <thead>
+            <tr>
+              <th width="6%">Hình</th>
+              <th width="24%">Nguyên liệu</th>
+              <th width="18%">Tồn kho hiện tại</th>
+              <th width="14%">Ngưỡng cảnh báo</th>
+              <th width="14%">Giá vốn / đơn vị</th>
+              <th width="24%" class="text-center">Hành động</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let ing of filteredIngredients; trackBy: trackById"
+              [class.row-critical-alert]="isLowStock(ing)"
+              class="luxury-row"
+            >
+              <td>
+                <div class="avatar-glass-box">
+                  <img [src]="ing.imageUrl || DEFAULT_IMAGE" class="img-avatar" alt="ing" />
+                </div>
+              </td>
+              <td>
+                <div class="product-core-cell">
+                  <span class="product-name-txt">{{ ing.name }}</span>
+                  <span *ngIf="isLowStock(ing)" class="glow-alert-badge">
+                    🔥 SẮP HẾT HÀNG
+                  </span>
+                </div>
+              </td>
+              <td>
+                <div class="stock-pill-wrapper">
+                  <span class="stock-indicator-num" [class.danger-blink]="isLowStock(ing)">
+                    {{ displayStock(ing) }}
+                  </span>
+                </div>
+              </td>
+              <td>
+                <span class="price-cost-text">
+                  {{ ing.minStockAlert | number }} {{ ing.subUnit }}
+                </span>
+              </td>
+              <td>
+                <span class="price-cost-text">
+                  {{ ing.costPrice | number }} ₫ / {{ ing.subUnit }}
+                </span>
+              </td>
+              <td class="text-center">
+                <div class="action-btn-group">
+                  <button class="btn-action-mini" (click)="openRecipeModal(ing)">
+                    📋 Cấu hình
+                  </button>
+                  <button class="btn-action-mini btn-mini-primary" (click)="openReceiptModal(ing)">
+                    📦 Nhập kho
+                  </button>
+                  <button class="btn-action-mini btn-mini-ghost" (click)="openUnitConfig(ing)" title="Cấu hình đơn vị quy đổi">
+                    ⚙️
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            <tr *ngIf="filteredIngredients.length === 0">
+              <td colspan="6" class="empty-state-luxury">
+                <div class="empty-state-center">
+                  <span class="empty-state-icon">📦</span>
+                  <p>Chưa có nguyên liệu nào. Hãy thêm nguyên liệu ở trang Quản lý Kho & Thực đơn (category = "Nguyên liệu").</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+
+  </div>
+</div>
+
+<!-- ===================== A. POPUP CẤU HÌNH CÔNG THỨC ===================== -->
+<div class="glass-backdrop-blur" *ngIf="isRecipeModalOpen" (click)="closeRecipeModal()">
+  <div class="luxury-modal-card" (click)="$event.stopPropagation()">
+    <div class="luxury-modal-header">
+      <div class="modal-title-flex">
+        <span class="modal-gem-indicator"></span>
+        <h3>Cấu hình công thức — {{ recipeTargetIngredient?.name }}</h3>
+      </div>
+      <button class="btn-close-neon" (click)="closeRecipeModal()">✕</button>
+    </div>
+
+    <div class="luxury-modal-body">
+      <div class="form-row-full">
+        <label>Tìm sản phẩm sử dụng nguyên liệu này</label>
+        <input
+          type="text"
+          class="input-premium-glass no-icon"
+          placeholder="Nhập tên món, ví dụ: Bạc xỉu..."
+          [(ngModel)]="recipeSearchQuery"
+          (input)="onRecipeSearchInput()"
+        />
+      </div>
+
+      <!-- Kết quả tìm kiếm -->
+      <div class="recipe-search-results" *ngIf="recipeSearchResults.length > 0">
+        <div class="recipe-search-item" *ngFor="let item of recipeSearchResults">
+          <img [src]="item.imageUrl || DEFAULT_IMAGE" class="recipe-thumb" alt="img" />
+          <span class="recipe-item-name">{{ item.name }}</span>
+          <button class="btn-add-recipe" (click)="addProductToRecipe(item)">+ Thêm</button>
+        </div>
+      </div>
+
+      <div class="form-divider"></div>
+
+      <!-- Danh sách món đã chọn -->
+      <div class="recipe-selected-list">
+        <p class="recipe-section-title">
+          Món áp dụng ({{ recipeSelectedItems.length }})
+        </p>
+
+        <div class="recipe-selected-item" *ngFor="let item of recipeSelectedItems">
+          <input type="checkbox" [checked]="true" disabled />
+          <img [src]="item.imageUrl || DEFAULT_IMAGE" class="recipe-thumb" alt="img" />
+          <span class="recipe-item-name">{{ item.name }}</span>
+          <div class="recipe-qty-input">
+            <input
+              type="number"
+              min="0"
+              [(ngModel)]="item.quantityNeeded"
+              class="qty-input-small"
+            />
+            <span class="unit-badge-static">{{ recipeTargetIngredient?.subUnit }} / ly</span>
+          </div>
+          <button class="btn-remove-recipe" (click)="removeProductFromRecipe(item)">✕</button>
+        </div>
+
+        <p class="empty-hint" *ngIf="recipeSelectedItems.length === 0">
+          Chưa có món nào áp dụng nguyên liệu này.
+        </p>
+      </div>
+
+      <div class="form-submit-footer">
+        <button class="btn-action-cancel" (click)="closeRecipeModal()">Hủy</button>
+        <button class="btn-action-submit" (click)="saveRecipe()">💾 Lưu công thức</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== B. POPUP NHẬP KHO ===================== -->
+<div class="glass-backdrop-blur" *ngIf="isReceiptModalOpen" (click)="closeReceiptModal()">
+  <div class="luxury-modal-card receipt-modal" (click)="$event.stopPropagation()">
+    <div class="luxury-modal-header">
+      <div class="modal-title-flex">
+        <span class="modal-gem-indicator"></span>
+        <h3>Nhập kho — {{ receiptTargetIngredient?.name }}</h3>
+      </div>
+      <button class="btn-close-neon" (click)="closeReceiptModal()">✕</button>
+    </div>
+
+    <div class="luxury-modal-body">
+      <form (ngSubmit)="submitReceipt()" class="modern-form">
+        <div class="form-group">
+          <label>Số lượng nhập <span class="required">*</span></label>
+          <div class="input-with-unit">
+            <input
+              type="number"
+              min="0"
+              [(ngModel)]="receiptForm.quantityImported"
+              name="quantityImported"
+              required
+            />
+            <span class="unit-badge">{{ receiptTargetIngredient?.baseUnit }}</span>
+          </div>
+          <span class="input-hint">
+            1 {{ receiptTargetIngredient?.baseUnit }} = {{ receiptTargetIngredient?.conversionRate }} {{ receiptTargetIngredient?.subUnit }}
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label>Giá tiền nhập (tổng)</label>
+          <div class="input-with-unit">
+            <input
+              type="number"
+              min="0"
+              [(ngModel)]="receiptForm.totalPrice"
+              name="totalPrice"
+            />
+            <span class="unit-badge">₫</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Hóa đơn (Bill)</label>
+          <div class="upload-placeholder">
+            📷 Tính năng upload hóa đơn sẽ được bổ sung sau.
+          </div>
+        </div>
+
+        <div class="form-footer">
+          <button type="button" class="btn-cancel" (click)="closeReceiptModal()">Hủy</button>
+          <button type="submit" class="btn-save">📦 Xác nhận nhập kho</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== C. POPUP CẤU HÌNH ĐƠN VỊ ===================== -->
+<div class="glass-backdrop-blur" *ngIf="isUnitConfigOpen" (click)="closeUnitConfig()">
+  <div class="luxury-modal-card receipt-modal" (click)="$event.stopPropagation()">
+    <div class="luxury-modal-header">
+      <div class="modal-title-flex">
+        <span class="modal-gem-indicator"></span>
+        <h3>Cấu hình đơn vị — {{ unitConfigTarget?.name }}</h3>
+      </div>
+      <button class="btn-close-neon" (click)="closeUnitConfig()">✕</button>
+    </div>
+
+    <div class="luxury-modal-body">
+      <form (ngSubmit)="saveUnitConfig()" class="modern-form">
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label>Đơn vị lớn (nhập kho)</label>
+            <input type="text" [(ngModel)]="unitConfigForm.baseUnit" name="baseUnit" placeholder="Bịch, Hộp, Chai..." />
+          </div>
+          <div class="form-group">
+            <label>Đơn vị nhỏ (tiêu hao)</label>
+            <input type="text" [(ngModel)]="unitConfigForm.subUnit" name="subUnit" placeholder="g, ml, cái..." />
+          </div>
+        </div>
+
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label>Tỉ lệ quy đổi (1 {{ unitConfigForm.baseUnit }} = ? {{ unitConfigForm.subUnit }})</label>
+            <input type="number" min="1" [(ngModel)]="unitConfigForm.conversionRate" name="conversionRate" />
+          </div>
+          <div class="form-group">
+            <label>Ngưỡng cảnh báo ({{ unitConfigForm.subUnit }})</label>
+            <input type="number" min="0" [(ngModel)]="unitConfigForm.minStockAlert" name="minStockAlert" />
+          </div>
+        </div>
+
+        <div class="form-footer">
+          <button type="button" class="btn-cancel" (click)="closeUnitConfig()">Hủy</button>
+          <button type="submit" class="btn-save">💾 Lưu cấu hình</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

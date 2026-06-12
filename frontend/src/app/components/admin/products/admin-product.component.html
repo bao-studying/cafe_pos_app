@@ -142,80 +142,183 @@
 
 <div class="glass-backdrop-blur" *ngIf="isModalOpen" (click)="closeModal()">
   <div class="luxury-modal-card" (click)="$event.stopPropagation()">
-    
+
     <div class="luxury-modal-header">
       <div class="modal-title-flex">
         <span class="modal-gem-indicator"></span>
-        <h3 *ngIf="modalMode === 'detail'">Chi Tiết Bản Ghi</h3>
-        <h3 *ngIf="modalMode === 'add'">Khởi Tạo Mặt Hàng</h3>
-        <h3 *ngIf="modalMode === 'edit'">Cập Nhật Cấu Hình</h3>
+        <h3 *ngIf="modalMode === 'detail'">Chi Tiết Sản Phẩm</h3>
+        <h3 *ngIf="modalMode === 'add'">Thêm Món / Nguyên Liệu Mới</h3>
+        <h3 *ngIf="modalMode === 'edit'">Chỉnh Sửa Thông Tin</h3>
       </div>
       <button class="btn-close-neon" (click)="closeModal()">✕</button>
     </div>
 
-    <div class="luxury-modal-body">
-      <div *ngIf="modalMode === 'detail'" class="detail-premium-flex">
-        <div class="detail-cover-blur" [style.backgroundImage]="'url(' + (currentProduct.imageUrl || DEFAULT_IMAGE) + ')'"></div>
-        <div class="detail-main-info">
-          <h4>{{currentProduct.name}}</h4>
-          <div class="detail-chips-row">
-            <span class="chip-premium font-cat">📁 {{currentProduct.category}}</span>
-            <span class="chip-premium font-sell" *ngIf="currentProduct.category !== 'Nguyên liệu'">💰 Giá bán: {{currentProduct.price | number}}đ</span>
-            <span class="chip-premium font-cost">📉 Vốn: {{currentProduct.costPrice | number}}đ</span>
-            <span class="chip-premium font-qty" *ngIf="currentProduct.category === 'Nguyên liệu'">📦 Tồn kho: {{currentProduct.quantity}} đvị</span>
-          </div>
-          <div class="detail-description-card">
-            <h5>Mô tả / Công thức pha chế:</h5>
-            <p>{{currentProduct.description || 'Chưa cấu hình nội dung mô tả sản phẩm.'}}</p>
-          </div>
-          <button class="btn-action-trigger-edit" (click)="switchToEdit()">⚙️ Chỉnh sửa thông số</button>
+    <!-- ── CHẾ ĐỘ XEM CHI TIẾT ── -->
+    <div class="luxury-modal-body" *ngIf="modalMode === 'detail'">
+      <div class="detail-hero-wrap">
+        <img
+          [src]="currentProduct.imageUrl || DEFAULT_IMAGE"
+          class="detail-hero-img"
+          alt="product"
+          (error)="currentProduct.imageUrl = DEFAULT_IMAGE"
+        />
+        <div class="detail-hero-overlay">
+          <span class="detail-cat-badge">{{ currentProduct.category }}</span>
         </div>
       </div>
 
-      <form *ngIf="modalMode === 'add' || modalMode === 'edit'" (ngSubmit)="saveProduct()" class="luxury-interactive-form">
-        <div class="form-row-full">
-          <label>Tên gọi hiển thị sản phẩm / nguyên liệu <span class="required-star">*</span></label>
-          <input type="text" [(ngModel)]="currentProduct.name" name="name" required placeholder="Ví dụ: Cà phê hạt Arabica, Sữa tươi thanh trùng..." />
+      <div class="detail-body-grid">
+        <div class="detail-name-row">
+          <h4>{{ currentProduct.name }}</h4>
+          <span
+            class="detail-status-pill"
+            [class.active]="currentProduct.isActive !== false"
+            [class.inactive]="currentProduct.isActive === false"
+          >
+            {{ currentProduct.isActive !== false ? '● Đang bán' : '○ Đã ẩn' }}
+          </span>
         </div>
 
-        <div class="form-row-grid">
-          <div class="form-group-cell">
-            <label>Phân loại danh mục</label>
+        <div class="detail-price-cards">
+          <div class="price-card green" *ngIf="currentProduct.category !== 'Nguyên liệu'">
+            <span class="price-card-label">Giá bán</span>
+            <span class="price-card-value">{{ currentProduct.price | number }}đ</span>
+          </div>
+          <div class="price-card blue">
+            <span class="price-card-label">Giá vốn</span>
+            <span class="price-card-value">{{ currentProduct.costPrice | number }}đ</span>
+          </div>
+          <div class="price-card orange" *ngIf="currentProduct.category === 'Nguyên liệu'">
+            <span class="price-card-label">Tồn kho</span>
+            <span class="price-card-value">{{ currentProduct.quantity }} đvị</span>
+          </div>
+        </div>
+
+        <div class="detail-desc-box" *ngIf="currentProduct.description">
+          <p class="detail-desc-label">Mô tả / Ghi chú</p>
+          <p class="detail-desc-text">{{ currentProduct.description }}</p>
+        </div>
+        <div class="detail-desc-box empty" *ngIf="!currentProduct.description">
+          <p class="detail-desc-text muted">Chưa có mô tả cho sản phẩm này.</p>
+        </div>
+
+        <button class="btn-edit-trigger" (click)="switchToEdit()">
+          ✏️ Chỉnh sửa thông tin
+        </button>
+      </div>
+    </div>
+
+    <!-- ── CHẾ ĐỘ THÊM / SỬA ── -->
+    <div class="luxury-modal-body" *ngIf="modalMode === 'add' || modalMode === 'edit'">
+      <form (ngSubmit)="saveProduct()" class="modern-form">
+
+        <!-- Preview ảnh -->
+        <div class="img-preview-row">
+          <div class="img-preview-box">
+            <img
+              [src]="currentProduct.imageUrl || DEFAULT_IMAGE"
+              alt="preview"
+              (error)="$any($event.target).src = DEFAULT_IMAGE"
+            />
+          </div>
+          <div class="img-url-group">
+            <label>URL Hình ảnh</label>
+            <input
+              type="text"
+              [(ngModel)]="currentProduct.imageUrl"
+              name="imageUrl"
+              placeholder="https://images.unsplash.com/..."
+            />
+            <span class="input-hint">Dán link ảnh để xem preview</span>
+          </div>
+        </div>
+
+        <div class="form-divider"></div>
+
+        <!-- Tên + Danh mục -->
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label>Tên sản phẩm <span class="required">*</span></label>
+            <input
+              type="text"
+              [(ngModel)]="currentProduct.name"
+              name="name"
+              required
+              placeholder="Ví dụ: Cà phê sữa đá, Trân châu đen..."
+            />
+          </div>
+          <div class="form-group">
+            <label>Danh mục</label>
             <select [(ngModel)]="currentProduct.category" name="category">
-              <option *ngFor="let cat of CATEGORIES" [value]="cat">{{cat}}</option>
+              <option *ngFor="let cat of CATEGORIES" [value]="cat">{{ cat }}</option>
             </select>
           </div>
-          <div class="form-group-cell" *ngIf="currentProduct.category !== 'Nguyên liệu'">
-            <label>Giá niêm yết bán lẻ (đ) <span class="required-star">*</span></label>
-            <input type="number" [(ngModel)]="currentProduct.price" name="price" />
+        </div>
+
+        <!-- Giá bán + Giá vốn -->
+        <div class="form-row-2col">
+          <div class="form-group" *ngIf="currentProduct.category !== 'Nguyên liệu'">
+            <label>
+              Giá bán (đ)
+              <span class="required">*</span>
+            </label>
+            <div class="input-with-unit">
+              <input
+                type="number"
+                [(ngModel)]="currentProduct.price"
+                name="price"
+                min="0"
+                placeholder="45000"
+              />
+              <span class="unit-badge">đ</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Giá vốn (đ)</label>
+            <div class="input-with-unit">
+              <input
+                type="number"
+                [(ngModel)]="currentProduct.costPrice"
+                name="costPrice"
+                min="0"
+                placeholder="20000"
+              />
+              <span class="unit-badge">đ</span>
+            </div>
+          </div>
+          <div class="form-group" *ngIf="currentProduct.category === 'Nguyên liệu'">
+            <label>Số lượng tồn kho</label>
+            <div class="input-with-unit">
+              <input
+                type="number"
+                [(ngModel)]="currentProduct.quantity"
+                name="quantity"
+                min="0"
+              />
+              <span class="unit-badge">đvị</span>
+            </div>
           </div>
         </div>
 
-        <div class="form-row-grid">
-          <div class="form-group-cell">
-            <label>Giá vốn nhập hàng (đ)</label>
-            <input type="number" [(ngModel)]="currentProduct.costPrice" name="costPrice" />
-          </div>
-          <div class="form-group-cell" *ngIf="currentProduct.category === 'Nguyên liệu'">
-            <label>Số lượng kiểm kho</label>
-            <input type="number" [(ngModel)]="currentProduct.quantity" name="quantity" />
-          </div>
+        <!-- Mô tả -->
+        <div class="form-group">
+          <label>Mô tả / Ghi chú công thức</label>
+          <textarea
+            [(ngModel)]="currentProduct.description"
+            name="description"
+            rows="3"
+            placeholder="Ghi chú nhà cung cấp, công thức pha chế, hạn sử dụng..."
+          ></textarea>
         </div>
 
-        <div class="form-row-full">
-          <label>Đường dẫn ảnh đại diện (URL Ảnh trực tuyến)</label>
-          <input type="text" [(ngModel)]="currentProduct.imageUrl" name="imageUrl" placeholder="https://images.unsplash.com/..." />
+        <!-- Footer nút -->
+        <div class="form-footer">
+          <button type="button" class="btn-cancel" (click)="closeModal()">Hủy</button>
+          <button type="submit" class="btn-save">
+            {{ modalMode === 'add' ? '➕ Thêm vào hệ thống' : '💾 Lưu thay đổi' }}
+          </button>
         </div>
 
-        <div class="form-row-full">
-          <label>Ghi chú hệ thống / Định lượng công thức</label>
-          <textarea [(ngModel)]="currentProduct.description" name="description" rows="3" placeholder="Ghi chú thời gian nhập, nhà cung cấp hoặc công thức cốt nền tại đây..."></textarea>
-        </div>
-
-        <footer class="form-submit-footer">
-          <button type="button" class="btn-action-cancel" (click)="closeModal()">Hủy bỏ</button>
-          <button type="submit" class="btn-action-submit">Cập nhật vào hệ thống</button>
-        </footer>
       </form>
     </div>
 
