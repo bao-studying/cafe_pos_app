@@ -3,10 +3,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
-import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
+import { CdkDragDrop, CdkDragEnd, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { trigger, transition, style, animate } from '@angular/animations';
 import { ProductService } from '../../services/product.service';
 import { OrderService, CreateOrderItemPayload } from '../../services/order.service';
+import { TableService, CafeTable } from '../../services/table.service';
 import { HttpClient } from '@angular/common/http';
 import { HostListener } from '@angular/core';
 
@@ -100,6 +101,14 @@ export class PosComponent implements OnInit {
   tableNumber = '';
   orderType: 'Dine-in' | 'Takeaway' = 'Dine-in';
 
+  // ── Sơ đồ bàn (floor plan kéo-thả) ─────────────────────
+  tables: CafeTable[] = [];
+  showFloorPlan = false;
+  isEditingLayout = false;
+  newTableLabel = '';
+  // Giỏ hàng đang phục vụ theo từng bàn — lưu tạm ở client, chưa lưu DB (chỉ dùng cho demo 1 máy POS)
+  private activeTableCarts = new Map<string, OrderItem[]>();
+
   // ── Discount toàn đơn ─────────────────────────────────
   discountPercent: number | null = null;
 
@@ -150,6 +159,7 @@ export class PosComponent implements OnInit {
     private authService: AuthService,
     private productService: ProductService,
     private orderService: OrderService,
+    private tableService: TableService,
     private http: HttpClient,
     public router: Router,
   ) {}
@@ -159,6 +169,107 @@ export class PosComponent implements OnInit {
 
     this.loadProducts();
     this.loadToppings();
+    this.loadTables();
+  }
+
+  // ── Sơ đồ bàn ─────────────────────────────────────────
+  private loadTables() {
+    this.tableService.getTables().subscribe({
+      next: (tables) => {
+        this.tables = tables || [];
+      },
+      error: () => {
+        this.tables = [];
+      },
+    });
+  }
+
+  openFloorPlan() {
+    this.showFloorPlan = true;
+  }
+
+  closeFloorPlan() {
+    this.showFloorPlan = false;
+    this.isEditingLayout = false;
+  }
+
+  toggleEditLayout() {
+    this.isEditingLayout = !this.isEditingLayout;
+  }
+
+  // Bàn đang có món trong giỏ (client-side) coi là "đang phục vụ"
+  isTableOccupied(table: CafeTable): boolean {
+    // Bàn đang được chọn ngay lúc này -> đọc trực tiếp từ giỏ hàng hiện tại (chưa kịp lưu vào map)
+    if (this.tableNumber === table.label) {
+      return this.orderItems.length > 0;
+    }
+    const cart = this.activeTableCarts.get(table.label);
+    return !!cart && cart.length > 0;
+  }
+
+  isTableSelected(table: CafeTable): boolean {
+    return this.tableNumber === table.label;
+  }
+
+  // Chọn 1 bàn: lưu giỏ hàng của bàn hiện tại lại, mở giỏ hàng của bàn mới chọn
+  selectTable(table: CafeTable) {
+    if (this.isEditingLayout) return; // đang ở chế độ sắp xếp thì không chọn bàn
+
+    // Lưu tạm giỏ hàng đang có (nếu đang gán cho 1 bàn khác) trước khi rời đi
+    if (this.tableNumber && this.tableNumber !== table.label) {
+      this.activeTableCarts.set(this.tableNumber, this.orderItems);
+    }
+
+    // Khôi phục giỏ hàng đã lưu của bàn vừa chọn (nếu có), chưa có thì giỏ trống
+    this.orderItems = this.activeTableCarts.get(table.label) ?? [];
+    this.tableNumber = table.label;
+    this.orderType = 'Dine-in';
+    this.showFloorPlan = false;
+  }
+
+  // Kéo-thả xong 1 bàn -> lưu vị trí mới lên server
+  onTableDragEnded(table: CafeTable, event: CdkDragEnd) {
+    const pos = event.source.getFreeDragPosition();
+    table.x = Math.round(pos.x);
+    table.y = Math.round(pos.y);
+    this.tableService.updateTable(table._id, { x: table.x, y: table.y }).subscribe({
+      error: () => {
+        // Không chặn UI nếu lưu thất bại, chỉ log nhẹ để không vỡ trải nghiệm demo
+        console.warn('Không lưu được vị trí bàn, thử kéo lại.');
+      },
+    });
+  }
+
+  addTable() {
+    const label = this.newTableLabel.trim();
+    if (!label) return;
+    this.tableService.createTable({ label, x: 40, y: 40 }).subscribe({
+      next: (res) => {
+        this.tables.push(res.table);
+        this.newTableLabel = '';
+      },
+      error: (err) => {
+        alert(err?.error?.message || 'Không thể thêm bàn.');
+      },
+    });
+  }
+
+  removeTable(table: CafeTable, event: Event) {
+    event.stopPropagation();
+    if (!confirm(`Xoá ${table.label} khỏi sơ đồ?`)) return;
+    this.tableService.deleteTable(table._id).subscribe({
+      next: () => {
+        this.tables = this.tables.filter((t) => t._id !== table._id);
+        this.activeTableCarts.delete(table.label);
+        if (this.tableNumber === table.label) {
+          this.tableNumber = '';
+          this.orderItems = [];
+        }
+      },
+      error: (err) => {
+        alert(err?.error?.message || 'Không thể xoá bàn.');
+      },
+    });
   }
 
   private loadProducts() {
@@ -581,6 +692,9 @@ export class PosComponent implements OnInit {
 
   closeSuccessAndReset() {
     this.showSuccessModal = false;
+    if (this.tableNumber) {
+      this.activeTableCarts.delete(this.tableNumber);
+    }
     this.orderItems = [];
     this.tableNumber = '';
     this.orderType = 'Dine-in';

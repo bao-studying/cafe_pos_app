@@ -6,13 +6,12 @@ const connectDB = require("./config/db.js");
 const User = require("./models/User.js");
 
 // ĐÃ SỬA: Chuyển dòng import routes lỗi thành require đồng bộ với toàn bộ file
- 
+
 // 1. Cấu hình dotenv phải nằm ĐẦU TIÊN để nạp các biến môi trường
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
 // 2. Sau đó mới gọi kết nối database
 connectDB();
-
 
 const app = express();
 app.use(cors());
@@ -62,6 +61,7 @@ app.use("/api/admin", require("./routes/adminRoutes"));
 app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/payment", require("./routes/paymentRoutes"));
 app.use("/api/stock", require("./routes/stockRoutes"));
+app.use("/api/tables", require("./routes/tableRoutes"));
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server đang chạy mượt mà trên port ${PORT}`);
