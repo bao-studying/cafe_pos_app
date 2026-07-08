@@ -736,12 +736,16 @@
       <p class="qr-note">Scan mã QR để chuyển khoản. Xác nhận sau khi nhận tiền.</p>
     </div>
 
+    <div class="order-submit-error" *ngIf="orderSubmitError">
+      ⚠️ {{ orderSubmitError }}
+    </div>
+
     <button
       (click)="confirmPayment()"
-      [disabled]="paymentMethod === 'cash' && (!cashReceived || cashReceived < orderTotal)"
+      [disabled]="isSubmittingOrder || (paymentMethod === 'cash' && (!cashReceived || cashReceived < orderTotal))"
       class="btn-confirm-pay"
     >
-      ✓ Xác nhận thanh toán
+      {{ isSubmittingOrder ? 'Đang xử lý...' : '✓ Xác nhận thanh toán' }}
     </button>
   </div>
 </div>

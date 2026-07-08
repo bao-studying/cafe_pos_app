@@ -6,9 +6,9 @@ import { AuthService } from '../../services/auth.service';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { trigger, transition, style, animate } from '@angular/animations';
 import { ProductService } from '../../services/product.service';
+import { OrderService, CreateOrderItemPayload } from '../../services/order.service';
 import { HttpClient } from '@angular/common/http';
-import {   HostListener } from '@angular/core';
-
+import { HostListener } from '@angular/core';
 
 export interface Product {
   id: string;
@@ -125,6 +125,9 @@ export class PosComponent implements OnInit {
   showPaymentModal = false;
   showSuccessModal = false;
   orderNumber = 0;
+  // ── Trạng thái gửi đơn lên server ─────────────────────
+  isSubmittingOrder = false;
+  orderSubmitError = '';
 
   // ── Item note popup ───────────────────────────────────
   showItemPopup = false;
@@ -146,6 +149,7 @@ export class PosComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private productService: ProductService,
+    private orderService: OrderService,
     private http: HttpClient,
     public router: Router,
   ) {}
@@ -523,9 +527,52 @@ export class PosComponent implements OnInit {
       (!this.cashReceived || this.cashReceived < this.orderTotal)
     )
       return;
-    this.orderNumber = Math.floor(1000 + Math.random() * 9000);
-    this.showPaymentModal = false;
-    this.showSuccessModal = true;
+
+    if (this.isSubmittingOrder) return;
+
+    const userId = this.currentUser?.id;
+    if (!userId) {
+      this.orderSubmitError = 'Không xác định được tài khoản thu ngân, vui lòng đăng nhập lại.';
+      return;
+    }
+
+    const payload = {
+      userId,
+      orderItems: this.orderItems.map(
+        (item): CreateOrderItemPayload => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+          size: item.size,
+          toppingIds: item.toppings.map((t) => t.id),
+          itemDiscountPercent: item.itemDiscountPercent || 0,
+        }),
+      ),
+      tableNumber: this.tableNumber,
+      orderType: this.orderType,
+      discountPercent: this.discountPercent || 0,
+      paymentMethod: this.paymentMethod,
+    };
+
+    this.isSubmittingOrder = true;
+    this.orderSubmitError = '';
+
+    this.orderService.createOrder(payload).subscribe({
+      next: (res: any) => {
+        this.isSubmittingOrder = false;
+        // Lấy mã đơn thật từ server (VD: ORDER-1720000000000) thay vì random ở client
+        const code: string = res?.order?.paymentCode || '';
+        const numericPart = code.replace(/\D/g, '').slice(-4);
+        this.orderNumber = numericPart
+          ? Number(numericPart)
+          : Math.floor(1000 + Math.random() * 9000);
+        this.showPaymentModal = false;
+        this.showSuccessModal = true;
+      },
+      error: (err) => {
+        this.isSubmittingOrder = false;
+        this.orderSubmitError = err?.error?.message || 'Không thể tạo đơn hàng, vui lòng thử lại.';
+      },
+    });
   }
 
   printBill() {
@@ -540,6 +587,7 @@ export class PosComponent implements OnInit {
     this.discountPercent = null;
     this.cashReceived = null;
     this.paymentMethod = 'cash';
+    this.orderSubmitError = '';
   }
 
   logout() {
