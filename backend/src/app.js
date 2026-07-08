@@ -2,8 +2,10 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const path = require("path");
+const http = require("http");
 const connectDB = require("./config/db.js");
 const User = require("./models/User.js");
+const { initSocket } = require("./socket.js");
 
 // ĐÃ SỬA: Chuyển dòng import routes lỗi thành require đồng bộ với toàn bộ file
 
@@ -62,7 +64,16 @@ app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/payment", require("./routes/paymentRoutes"));
 app.use("/api/stock", require("./routes/stockRoutes"));
 app.use("/api/tables", require("./routes/tableRoutes"));
+app.use("/api/shifts", require("./routes/shiftRoutes"));
+app.use("/api/attendance", require("./routes/attendanceRoutes"));
+app.use("/api/payroll", require("./routes/payrollRoutes"));
+app.use("/api/pos", require("./routes/posRoutes"));
+
+// Dùng httpServer thay vì app.listen trực tiếp để gắn được Socket.io lên cùng cổng
+const httpServer = http.createServer(app);
+initSocket(httpServer);
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server đang chạy mượt mà trên port ${PORT}`);
+httpServer.listen(PORT, () => {
+  console.log(`🚀 Server đang chạy mượt mà trên port ${PORT} (kèm Socket.io)`);
 });
