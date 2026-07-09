@@ -68,6 +68,7 @@ app.use("/api/shifts", require("./routes/shiftRoutes"));
 app.use("/api/attendance", require("./routes/attendanceRoutes"));
 app.use("/api/payroll", require("./routes/payrollRoutes"));
 app.use("/api/pos", require("./routes/posRoutes"));
+app.use("/api/schedule", require("./routes/scheduleRoutes"));
 
 // Dùng httpServer thay vì app.listen trực tiếp để gắn được Socket.io lên cùng cổng
 const httpServer = http.createServer(app);

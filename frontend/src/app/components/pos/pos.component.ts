@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -46,6 +46,7 @@ export interface OrderItem {
 export type PaymentMethod = 'cash' | 'transfer';
 
 const SIZE_MULTIPLIER: Record<string, number> = { S: 0.9, M: 1.0, L: 1.2 };
+const CART_STORAGE_KEY = 'pos_cart_state_v1';
 
 @Component({
   selector: 'app-pos',
@@ -137,6 +138,15 @@ export class PosComponent implements OnInit {
   // ── Trạng thái gửi đơn lên server ─────────────────────
   isSubmittingOrder = false;
   orderSubmitError = '';
+  printedAt: Date | null = null; // Thời điểm in bill, hiện trên hoá đơn
+
+  tempLabel(temp: 'hot' | 'ice' | 'warm'): string {
+    return temp === 'hot' ? 'Nóng' : temp === 'ice' ? 'Đá' : 'Ấm';
+  }
+
+  toppingNames(item: OrderItem): string {
+    return item.toppings.map((t) => t.name).join(', ');
+  }
 
   // ── Item note popup ───────────────────────────────────
   showItemPopup = false;
@@ -161,6 +171,7 @@ export class PosComponent implements OnInit {
     private orderService: OrderService,
     private tableService: TableService,
     private http: HttpClient,
+    private cdr: ChangeDetectorRef,
     public router: Router,
   ) {}
 
@@ -170,6 +181,39 @@ export class PosComponent implements OnInit {
     this.loadProducts();
     this.loadToppings();
     this.loadTables();
+    this.restoreCart();
+  }
+
+  // Lưu giỏ hàng vào localStorage để F5 không mất đơn đang order dở
+  // (không để private vì được gọi trực tiếp từ template qua (ngModelChange))
+  persistCart() {
+    try {
+      const state = {
+        orderItems: this.orderItems,
+        tableNumber: this.tableNumber,
+        orderType: this.orderType,
+        discountPercent: this.discountPercent,
+        activeTableCarts: Object.fromEntries(this.activeTableCarts),
+      };
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // localStorage đầy/bị chặn -> bỏ qua, không chặn thao tác chính của thu ngân
+    }
+  }
+
+  private restoreCart() {
+    try {
+      const raw = localStorage.getItem(CART_STORAGE_KEY);
+      if (!raw) return;
+      const state = JSON.parse(raw);
+      this.orderItems = state.orderItems || [];
+      this.tableNumber = state.tableNumber || '';
+      this.orderType = state.orderType === 'Takeaway' ? 'Takeaway' : 'Dine-in';
+      this.discountPercent = state.discountPercent ?? null;
+      this.activeTableCarts = new Map(Object.entries(state.activeTableCarts || {}));
+    } catch {
+      // Dữ liệu lưu bị hỏng -> bỏ qua, bắt đầu với giỏ hàng trống
+    }
   }
 
   // ── Sơ đồ bàn ─────────────────────────────────────────
@@ -177,9 +221,11 @@ export class PosComponent implements OnInit {
     this.tableService.getTables().subscribe({
       next: (tables) => {
         this.tables = tables || [];
+        this.cdr.detectChanges();
       },
       error: () => {
         this.tables = [];
+        this.cdr.detectChanges();
       },
     });
   }
@@ -225,6 +271,7 @@ export class PosComponent implements OnInit {
     this.tableNumber = table.label;
     this.orderType = 'Dine-in';
     this.showFloorPlan = false;
+    this.persistCart();
   }
 
   // Kéo-thả xong 1 bàn -> lưu vị trí mới lên server
@@ -243,15 +290,39 @@ export class PosComponent implements OnInit {
   addTable() {
     const label = this.newTableLabel.trim();
     if (!label) return;
-    this.tableService.createTable({ label, x: 40, y: 40 }).subscribe({
+
+    // Xếp bàn mới theo lưới tự động để không bị trùng vị trí (40,40) với các bàn khác
+    const index = this.tables.length;
+    const col = index % 5;
+    const row = Math.floor(index / 5);
+    const x = 30 + col * 110;
+    const y = 30 + row * 110;
+
+    this.tableService.createTable({ label, x, y }).subscribe({
       next: (res) => {
         this.tables.push(res.table);
         this.newTableLabel = '';
+        this.cdr.detectChanges();
       },
       error: (err) => {
         alert(err?.error?.message || 'Không thể thêm bàn.');
       },
     });
+  }
+
+  // Sửa lỗi dữ liệu cũ: các bàn tạo trước khi có lưới tự động đều nằm chung (40,40),
+  // bấm nút này để dàn đều lại toàn bộ bàn hiện có theo lưới, đồng thời lưu lại vị trí mới xuống DB.
+  autoArrangeTables() {
+    this.tables.forEach((table, index) => {
+      const col = index % 5;
+      const row = Math.floor(index / 5);
+      table.x = 30 + col * 110;
+      table.y = 30 + row * 110;
+      this.tableService.updateTable(table._id, { x: table.x, y: table.y }).subscribe({
+        error: () => console.warn(`Không lưu được vị trí mới cho ${table.label}`),
+      });
+    });
+    this.cdr.detectChanges();
   }
 
   removeTable(table: CafeTable, event: Event) {
@@ -265,6 +336,7 @@ export class PosComponent implements OnInit {
           this.tableNumber = '';
           this.orderItems = [];
         }
+        this.cdr.detectChanges();
       },
       error: (err) => {
         alert(err?.error?.message || 'Không thể xoá bàn.');
@@ -283,6 +355,7 @@ export class PosComponent implements OnInit {
         else {
           console.error('API products sai format', response);
           this.isLoading = false;
+          this.cdr.detectChanges();
           return;
         }
 
@@ -291,10 +364,12 @@ export class PosComponent implements OnInit {
           .filter((p) => p.category !== 'Nguyên liệu');
         this.filteredProducts = [...this.allProducts];
         this.isLoading = false;
+        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Không tải được sản phẩm:', err);
         this.isLoading = false;
+        this.cdr.detectChanges();
       },
     });
   }
@@ -324,9 +399,11 @@ export class PosComponent implements OnInit {
             name: p.name,
             price: Number(p.price ?? 0),
           }));
+        this.cdr.detectChanges();
       },
       error: () => {
         this.availableToppings = [];
+        this.cdr.detectChanges();
       },
     });
   }
@@ -416,6 +493,13 @@ export class PosComponent implements OnInit {
 
   // ── Add to order ──────────────────────────────────────
   addToOrder(product: Product) {
+    // Bắt buộc phải chọn bàn trước khi order (chỉ áp dụng khi Tại bàn, Mang về thì không cần)
+    if (this.orderType === 'Dine-in' && !this.tableNumber) {
+      alert('⚠️ Vui lòng chọn bàn trước khi thêm món!');
+      this.openFloorPlan();
+      return;
+    }
+
     const idx = this.orderItems.findIndex((i) => i.product.id === product.id);
     if (idx !== -1) {
       this.orderItems[idx] = {
@@ -426,6 +510,7 @@ export class PosComponent implements OnInit {
     } else {
       this.orderItems = [...this.orderItems, this.makeOrderItem(product)];
     }
+    this.persistCart();
   }
 
   private makeOrderItem(product: Product): OrderItem {
@@ -456,10 +541,12 @@ export class PosComponent implements OnInit {
       this.orderItems[idx] = { ...item, quantity: newQty };
       this.orderItems = [...this.orderItems];
     }
+    this.persistCart();
   }
 
   removeItem(item: OrderItem) {
     this.orderItems = this.orderItems.filter((i) => i.uid !== item.uid);
+    this.persistCart();
   }
 
   // ── Item Popup ────────────────────────────────────────
@@ -495,6 +582,7 @@ export class PosComponent implements OnInit {
       note: this.draft.note,
     };
     this.orderItems = [...this.orderItems];
+    this.persistCart();
     this.closeItemPopup();
   }
 
@@ -619,6 +707,13 @@ export class PosComponent implements OnInit {
       if (this.discountPercent < 0) this.discountPercent = 0;
       if (this.discountPercent > 100) this.discountPercent = 100;
     }
+    this.persistCart();
+  }
+
+  // ── Loại đơn (Tại bàn / Mang về) ────────────────────────
+  setOrderType(type: 'Dine-in' | 'Takeaway') {
+    this.orderType = type;
+    this.persistCart();
   }
 
   // ── Payment ───────────────────────────────────────────
@@ -676,12 +771,15 @@ export class PosComponent implements OnInit {
         this.orderNumber = numericPart
           ? Number(numericPart)
           : Math.floor(1000 + Math.random() * 9000);
+        this.printedAt = new Date();
         this.showPaymentModal = false;
         this.showSuccessModal = true;
+        this.cdr.detectChanges(); // app chạy zoneless -> phải tự báo Angular vẽ lại ngay, không chờ click
       },
       error: (err) => {
         this.isSubmittingOrder = false;
         this.orderSubmitError = err?.error?.message || 'Không thể tạo đơn hàng, vui lòng thử lại.';
+        this.cdr.detectChanges();
       },
     });
   }
@@ -702,6 +800,8 @@ export class PosComponent implements OnInit {
     this.cashReceived = null;
     this.paymentMethod = 'cash';
     this.orderSubmitError = '';
+    this.printedAt = null;
+    this.persistCart();
   }
 
   logout() {

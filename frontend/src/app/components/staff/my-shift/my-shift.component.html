@@ -1,0 +1,152 @@
+<div class="my-shift-wrapper">
+  <div class="my-shift-header">
+    <h2>Ca làm của tôi</h2>
+    <p>Chọn ô trên bảng lịch để đăng ký ca, chấm công và xem lương tạm tính</p>
+  </div>
+
+  <!-- ═══════════ CHẤM CÔNG ═══════════ -->
+  <div class="section-card checkin-card">
+    <div class="checkin-status">
+      <span class="status-dot" [class.online]="isCheckedIn"></span>
+      {{ isCheckedIn ? 'Đang trong ca làm việc' : 'Chưa check-in' }}
+    </div>
+    <div class="checkin-buttons">
+      <button class="big-btn btn-checkin" [disabled]="isCheckedIn || isSubmitting" (click)="checkIn()">
+        ✅ Check-in
+      </button>
+      <button class="big-btn btn-checkout" [disabled]="!isCheckedIn || isSubmitting" (click)="checkOut()">
+        🚪 Check-out
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════ LƯƠNG TẠM TÍNH ═══════════ -->
+  @if (payrollEstimate) {
+    <div class="section-card estimate-card">
+      <span class="estimate-label">Lương tạm tính tháng {{ payrollEstimate.month }}/{{ payrollEstimate.year }}</span>
+      <strong class="estimate-amount">{{ payrollEstimate.estimatedSalary | number }} đ</strong>
+      <span class="estimate-hours">{{ payrollEstimate.totalHours }} giờ công — chưa được admin chốt</span>
+    </div>
+  }
+
+  <!-- ═══════════ BẢNG LỊCH LÀM VIỆC ═══════════ -->
+  <div class="section-card">
+    <div class="board-header">
+      <h3>Bảng lịch làm việc</h3>
+      <div class="week-nav">
+        <button (click)="prevWeek()">‹</button>
+        <span>{{ weekStart | date: 'dd/MM' }} - {{ weekEnd | date: 'dd/MM' }}</span>
+        <button (click)="nextWeek()">›</button>
+      </div>
+    </div>
+    @if (weekOffset !== 0) {
+      <button class="link-btn" (click)="goToThisWeek()">↩ Về tuần này</button>
+    }
+
+    <!-- Chú thích màu -->
+    <div class="legend">
+      <span><i class="dot open"></i> Còn chỗ</span>
+      <span><i class="dot mine-pending"></i> Chờ duyệt</span>
+      <span><i class="dot mine-approved"></i> Đã duyệt</span>
+      <span><i class="dot full"></i> Hết chỗ</span>
+    </div>
+
+    @if (isBoardLoading) {
+      <p class="muted">Đang tải bảng lịch...</p>
+    } @else if (scheduleRows.length === 0) {
+      <p class="muted">Admin chưa mở ca đăng ký nào cho tuần này.</p>
+    } @else {
+      <div class="board-grid-wrapper">
+        <table class="board-grid">
+          <thead>
+            <tr>
+              <th class="sticky-col">Ca</th>
+              @for (day of weekDays; track day.value) {
+                <th>{{ day.label }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of scheduleRows; track trackById($index, row)) {
+              <tr>
+                <td class="sticky-col cell-name">
+                  {{ row.shiftName }}<br /><small>{{ row.startTime }}-{{ row.endTime }}</small>
+                </td>
+                @for (day of weekDays; track day.value) {
+                  <td>
+                    <button
+                      class="board-cell"
+                      [class]="'state-' + cellState(row.cellsByDay[day.value])"
+                      [disabled]="!isCellClickable(row.cellsByDay[day.value])"
+                      (click)="openConfirm(row.cellsByDay[day.value])"
+                    >
+                      @switch (cellState(row.cellsByDay[day.value])) {
+                        @case ('mine-pending') { <span>Chờ duyệt</span> }
+                        @case ('mine-approved') { <span>Đã duyệt</span> }
+                        @case ('full') { <span>Hết chỗ</span> }
+                        @case ('past') { <span>—</span> }
+                        @case ('closed') { <span>—</span> }
+                        @default { <span>+ Đăng ký</span> }
+                      }
+                    </button>
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+
+  <!-- ═══════════ TRẠNG THÁI ĐĂNG KÝ CỦA TÔI ═══════════ -->
+  <div class="section-card">
+    <h3>Đăng ký của tôi</h3>
+    @if (myRegistrations.length === 0) {
+      <p class="muted">Chưa có đăng ký ca nào.</p>
+    } @else {
+      @for (reg of myRegistrations; track trackById($index, reg)) {
+        <div class="reg-row">
+          <span>{{ reg.date | date: 'dd/MM/yyyy' }} — {{ templateLabel(reg.shiftTemplateId) }}</span>
+          <span class="status-pill" [class]="'status-' + reg.status">{{ reg.status }}</span>
+        </div>
+      }
+    }
+  </div>
+
+  <!-- ═══════════ LỊCH SỬ CHẤM CÔNG ═══════════ -->
+  <div class="section-card">
+    <h3>Chấm công tháng này</h3>
+    @if (myAttendance.length === 0) {
+      <p class="muted">Chưa có dữ liệu chấm công tháng này.</p>
+    } @else {
+      @for (att of myAttendance; track trackById($index, att)) {
+        <div class="reg-row">
+          <span>{{ att.checkInTime | date: 'dd/MM HH:mm' }} → {{ att.checkOutTime ? (att.checkOutTime | date: 'HH:mm') : 'đang làm' }}</span>
+          <strong>{{ att.actualHours }}h</strong>
+        </div>
+      }
+    }
+  </div>
+</div>
+
+<!-- ═══════════ POPUP XÁC NHẬN ĐĂNG KÝ CA ═══════════ -->
+@if (isConfirmOpen && selectedCell) {
+  <div class="modal-overlay" (click)="closeConfirm()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <h3>Xác nhận đăng ký ca</h3>
+      <p class="confirm-text">
+        Bạn muốn đăng ký ca <strong>{{ selectedCell.shiftName }}</strong>
+        ({{ selectedCell.startTime }} - {{ selectedCell.endTime }})
+        <br />
+        ngày <strong>{{ selectedCell.date | date: 'dd/MM/yyyy' }}</strong>?
+      </p>
+      <div class="modal-actions">
+        <button class="btn-secondary" (click)="closeConfirm()">Huỷ</button>
+        <button class="btn-submit" [disabled]="isSubmitting" (click)="confirmRegister()">
+          {{ isSubmitting ? 'Đang gửi...' : 'Xác nhận đăng ký' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

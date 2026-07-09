@@ -1,0 +1,306 @@
+<div class="staff-page">
+  <!-- ═══════════ HEADER + TAB CHÍNH ═══════════ -->
+  <div class="page-header">
+    <div>
+      <h2>Quản lý nhân viên</h2>
+      <p>Ca làm việc, chấm công, lương và tài khoản nhân viên</p>
+    </div>
+    <button class="btn-primary" (click)="openAddModal()">+ Thêm nhân viên</button>
+  </div>
+
+  <div class="top-tabs">
+    <button [class.active]="topTab === 'list'" (click)="switchTopTab('list')">
+      Danh sách nhân viên
+    </button>
+    <button [class.active]="topTab === 'approvals'" (click)="switchTopTab('approvals')">
+      Duyệt đăng ký ca
+      @if (pendingRegistrations.length > 0) {
+        <span class="tab-badge">{{ pendingRegistrations.length }}</span>
+      }
+    </button>
+    <button [class.active]="topTab === 'templates'" (click)="switchTopTab('templates')">
+      Ca mẫu
+    </button>
+    <button [class.active]="topTab === 'schedule'" (click)="switchTopTab('schedule')">
+      Bảng lịch làm việc
+    </button>
+  </div>
+
+  <!-- ═══════════ TAB: DANH SÁCH NHÂN VIÊN ═══════════ -->
+  @if (topTab === 'list') {
+    <div class="card">
+      @if (staffList.length === 0) {
+        <div class="empty-state">Chưa có nhân viên nào. Bấm "+ Thêm nhân viên" để bắt đầu.</div>
+      } @else {
+        <table class="staff-table">
+          <thead>
+            <tr>
+              <th>Tên</th>
+              <th>SĐT</th>
+              <th>Vai trò</th>
+              <th>Lương/giờ</th>
+              <th>Trạng thái làm việc</th>
+              <th>Tài khoản</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (staff of staffList; track trackById($index, staff)) {
+              <tr (click)="openDrawer(staff)" class="staff-row">
+                <td class="cell-name">{{ staff.name }}</td>
+                <td>{{ staff.phone }}</td>
+                <td>
+                  <span class="role-badge" [class]="'role-' + staff.role">{{ staff.role }}</span>
+                </td>
+                <td>{{ staff.hourlyRate | number }} đ</td>
+                <td>
+                  <span class="status-dot" [class.online]="isOnline(staff)"></span>
+                  {{ isOnline(staff) ? 'Đang làm' : 'Offline' }}
+                </td>
+                <td>
+                  <span class="account-badge" [class.locked]="!staff.isActive">
+                    {{ staff.isActive ? 'Hoạt động' : 'Đã khoá' }}
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  }
+
+  <!-- ═══════════ TAB: DUYỆT ĐĂNG KÝ CA ═══════════ -->
+  @if (topTab === 'approvals') {
+    <div class="card">
+      @if (pendingRegistrations.length === 0) {
+        <div class="empty-state">Không có đăng ký ca nào đang chờ duyệt.</div>
+      } @else {
+        <div class="approval-list">
+          @for (reg of pendingRegistrations; track trackById($index, reg)) {
+            <div class="approval-row">
+              <div class="approval-info">
+                <strong>{{ staffName(reg.staffId) }}</strong>
+                <span>{{ templateLabel(reg.shiftTemplateId) }}</span>
+                <span class="approval-date">{{ reg.date | date: 'dd/MM/yyyy' }}</span>
+              </div>
+              <div class="approval-actions">
+                <button class="btn-approve" (click)="approveRegistration(reg)">Duyệt</button>
+                <button class="btn-reject" (click)="rejectRegistration(reg)">Từ chối</button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ═══════════ TAB: CA MẪU ═══════════ -->
+  @if (topTab === 'templates') {
+    <div class="card">
+      <div class="template-form">
+        <input type="text" placeholder="Tên ca (VD: Ca sáng)" [(ngModel)]="newTemplate.name" />
+        <input type="time" [(ngModel)]="newTemplate.startTime" />
+        <span class="time-sep">→</span>
+        <input type="time" [(ngModel)]="newTemplate.endTime" />
+        <button class="btn-primary" (click)="addShiftTemplate()">+ Thêm ca mẫu</button>
+      </div>
+
+      @if (shiftTemplates.length === 0) {
+        <div class="empty-state">Chưa có ca mẫu nào.</div>
+      } @else {
+        <div class="template-list">
+          @for (tpl of shiftTemplates; track trackById($index, tpl)) {
+            <div class="template-row" [class.inactive]="!tpl.isActive">
+              <div>
+                <strong>{{ tpl.name }}</strong>
+                <span>{{ tpl.startTime }} - {{ tpl.endTime }}</span>
+              </div>
+              <div class="template-actions">
+                <button (click)="toggleTemplateActive(tpl)">
+                  {{ tpl.isActive ? 'Ẩn ca' : 'Hiện ca' }}
+                </button>
+                <button class="btn-reject" (click)="deleteTemplate(tpl)">Xoá</button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ═══════════ TAB: BẢNG LỊCH LÀM VIỆC (thiết lập sức chứa) ═══════════ -->
+  @if (topTab === 'schedule') {
+    <div class="card">
+      <p class="schedule-hint">
+        Nhập số lượng nhân viên tối đa được đăng ký cho từng ô (Thứ × Ca). Để trống hoặc nhập 0 nghĩa là ô đó chưa mở đăng ký.
+      </p>
+      @if (shiftTemplates.length === 0) {
+        <div class="empty-state">Chưa có ca mẫu nào. Hãy thêm ca mẫu ở tab "Ca mẫu" trước.</div>
+      } @else {
+        <div class="schedule-grid-wrapper">
+          <table class="schedule-grid">
+            <thead>
+              <tr>
+                <th class="sticky-col">Ca \ Thứ</th>
+                @for (day of weekDays; track day.value) {
+                  <th>{{ day.label }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (tpl of shiftTemplates; track trackById($index, tpl)) {
+                <tr>
+                  <td class="sticky-col cell-name">{{ tpl.name }}<br /><small>{{ tpl.startTime }}-{{ tpl.endTime }}</small></td>
+                  @for (day of weekDays; track day.value) {
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        class="capacity-input"
+                        [(ngModel)]="capacityMap[cellKey(tpl._id, day.value)]"
+                        (change)="saveCapacity(tpl._id, day.value)"
+                        placeholder="0"
+                      />
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!-- ═══════════ MODAL THÊM NHÂN VIÊN ═══════════ -->
+@if (isAddModalOpen) {
+  <div class="modal-overlay" (click)="closeAddModal()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <h3>Thêm nhân viên mới</h3>
+      <label>Họ tên</label>
+      <input type="text" [(ngModel)]="newStaff.name" placeholder="Nguyễn Văn A" />
+      <label>Số điện thoại</label>
+      <input type="text" [(ngModel)]="newStaff.phone" placeholder="09xxxxxxxx" />
+      <label>Mật khẩu tạm thời</label>
+      <input type="text" [(ngModel)]="newStaff.password" placeholder="Mật khẩu đăng nhập" />
+      <label>Lương/giờ (đ)</label>
+      <input type="number" [(ngModel)]="newStaff.hourlyRate" placeholder="0" />
+
+      <div class="modal-actions">
+        <button class="btn-secondary" (click)="closeAddModal()">Huỷ</button>
+        <button class="btn-primary" [disabled]="isSaving" (click)="submitNewStaff()">
+          {{ isSaving ? 'Đang lưu...' : 'Tạo tài khoản' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ═══════════ DRAWER CHI TIẾT NHÂN VIÊN (trượt từ phải) ═══════════ -->
+@if (isDrawerOpen && selectedStaff) {
+  <div class="drawer-overlay" (click)="closeDrawer()">
+    <div class="drawer-panel" (click)="$event.stopPropagation()">
+      <div class="drawer-header">
+        <h3>{{ selectedStaff.name }}</h3>
+        <button class="drawer-close" (click)="closeDrawer()">✕</button>
+      </div>
+
+      <div class="drawer-tabs">
+        <button [class.active]="drawerTab === 'info'" (click)="switchDrawerTab('info')">
+          Thông tin
+        </button>
+        <button [class.active]="drawerTab === 'shifts'" (click)="switchDrawerTab('shifts')">
+          Lịch ca làm
+        </button>
+        <button [class.active]="drawerTab === 'payroll'" (click)="switchDrawerTab('payroll')">
+          Bảng lương
+        </button>
+      </div>
+
+      <div class="drawer-body">
+        <!-- Tab: Thông tin cá nhân -->
+        @if (drawerTab === 'info') {
+          <label>Họ tên</label>
+          <input type="text" [(ngModel)]="editStaff.name" />
+          <label>Số điện thoại</label>
+          <input type="text" [(ngModel)]="editStaff.phone" />
+          <label>Vai trò</label>
+          <select [(ngModel)]="editStaff.role">
+            <option value="staff">staff</option>
+            <option value="admin">admin</option>
+          </select>
+          <label>Lương/giờ (đ)</label>
+          <input type="number" [(ngModel)]="editStaff.hourlyRate" />
+
+          <button class="btn-primary full-width" [disabled]="isSaving" (click)="saveStaffInfo()">
+            {{ isSaving ? 'Đang lưu...' : 'Lưu thay đổi' }}
+          </button>
+
+          <button
+            class="full-width"
+            [class.btn-reject]="selectedStaff.isActive"
+            [class.btn-approve]="!selectedStaff.isActive"
+            (click)="toggleStaffLock()"
+          >
+            {{ selectedStaff.isActive ? 'Khoá tài khoản' : 'Mở khoá tài khoản' }}
+          </button>
+        }
+
+        <!-- Tab: Lịch ca làm -->
+        @if (drawerTab === 'shifts') {
+          <h4>Đăng ký ca</h4>
+          @if (staffRegistrations.length === 0) {
+            <p class="muted">Chưa có đăng ký ca nào.</p>
+          } @else {
+            @for (reg of staffRegistrations; track trackById($index, reg)) {
+              <div class="mini-row">
+                <span>{{ reg.date | date: 'dd/MM/yyyy' }} — {{ templateLabel(reg.shiftTemplateId) }}</span>
+                <span class="status-pill" [class]="'status-' + reg.status">{{ reg.status }}</span>
+              </div>
+            }
+          }
+
+          <h4>Chấm công thực tế</h4>
+          @if (staffAttendance.length === 0) {
+            <p class="muted">Chưa có dữ liệu chấm công.</p>
+          } @else {
+            @for (att of staffAttendance; track trackById($index, att)) {
+              <div class="mini-row">
+                <span>{{ att.checkInTime | date: 'dd/MM HH:mm' }} → {{ att.checkOutTime ? (att.checkOutTime | date: 'HH:mm') : 'đang làm' }}</span>
+                <span>{{ att.actualHours }}h</span>
+              </div>
+            }
+          }
+        }
+
+        <!-- Tab: Bảng lương -->
+        @if (drawerTab === 'payroll') {
+          @if (payrollEstimate) {
+            <div class="estimate-box">
+              <span>Tạm tính tháng {{ payrollEstimate.month }}/{{ payrollEstimate.year }}</span>
+              <strong>{{ payrollEstimate.estimatedSalary | number }} đ</strong>
+              <small>{{ payrollEstimate.totalHours }} giờ công — chưa chốt</small>
+            </div>
+          }
+
+          <button class="btn-primary full-width" [disabled]="isSaving" (click)="finalizePayrollForSelected()">
+            Chốt lương tháng này (áp dụng toàn bộ nhân viên)
+          </button>
+
+          <h4>Lịch sử lương đã chốt</h4>
+          @if (staffPayrolls.length === 0) {
+            <p class="muted">Chưa có bảng lương nào được chốt.</p>
+          } @else {
+            @for (p of staffPayrolls; track trackById($index, p)) {
+              <div class="mini-row">
+                <span>Tháng {{ p.month }}/{{ p.year }} — {{ p.totalHours }}h</span>
+                <strong>{{ p.totalSalary | number }} đ</strong>
+              </div>
+            }
+          }
+        }
+      </div>
+    </div>
+  </div>
+}

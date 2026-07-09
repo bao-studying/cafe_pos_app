@@ -29,7 +29,7 @@ export class AdminProductComponent implements OnInit {
   filteredProducts: Product[] = []; // Mảng dùng để tìm kiếm và hiển thị thực tế
   pagedProducts: Product[] = [];
   currentPage = 1;
-  itemsPerPage = 7;
+  itemsPerPage = 5;
 
   // Quản lý Tìm kiếm & Bộ lọc
   searchQuery: string = '';

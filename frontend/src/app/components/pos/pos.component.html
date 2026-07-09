@@ -1,20 +1,30 @@
 ﻿<div class="pos-shell" [class.dragging-active]="isDraggingProduct">
   <!-- ═══════════ NAVBAR ═══════════ -->
   <nav class="pos-nav">
-    <div class="nav-brand">
-      <div class="nav-logo">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
-          <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
-          <line x1="6" y1="1" x2="6" y2="4" />
-          <line x1="10" y1="1" x2="10" y2="4" />
-          <line x1="14" y1="1" x2="14" y2="4" />
-        </svg>
+    <div class="nav-left-group">
+      <div class="nav-brand">
+        <div class="nav-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
+            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+            <line x1="6" y1="1" x2="6" y2="4" />
+            <line x1="10" y1="1" x2="10" y2="4" />
+            <line x1="14" y1="1" x2="14" y2="4" />
+          </svg>
+        </div>
+        <div>
+          <span class="nav-label">POS System</span>
+          <h1 class="nav-title">CÀ PHÊ</h1>
+        </div>
       </div>
-      <div>
-        <span class="nav-label">POS System</span>
-        <h1 class="nav-title">CÀ PHÊ</h1>
-      </div>
+
+      <button class="nav-table-select" (click)="openFloorPlan()">
+        <span class="nav-table-icon">🪑</span>
+        <span class="nav-table-text">
+          <span class="nav-table-label">{{ orderType === 'Takeaway' ? 'Mang về' : 'Bàn' }}</span>
+          <span class="nav-table-value">{{ orderType === 'Takeaway' ? 'Không cần bàn' : (tableNumber || 'Chọn bàn') }}</span>
+        </span>
+      </button>
     </div>
 
     <div class="nav-center">
@@ -248,28 +258,25 @@
           </h2>
         </div>
         <div class="order-type-toggle">
-          <button [class.active]="orderType === 'Dine-in'" (click)="orderType = 'Dine-in'">
+          <button [class.active]="orderType === 'Dine-in'" (click)="setOrderType('Dine-in')">
             🪑 Tại bàn
           </button>
-          <button [class.active]="orderType === 'Takeaway'" (click)="orderType = 'Takeaway'">
+          <button [class.active]="orderType === 'Takeaway'" (click)="setOrderType('Takeaway')">
             🥤 Mang về
           </button>
         </div>
       </div>
 
-      <div class="table-input-wrap" (click)="orderType === 'Dine-in' ? openFloorPlan() : null">
+      <div class="table-input-wrap" *ngIf="orderType === 'Takeaway'">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <rect x="3" y="3" width="18" height="18" rx="2" />
           <line x1="3" y1="9" x2="21" y2="9" />
           <line x1="9" y1="21" x2="9" y2="3" />
         </svg>
-        <button type="button" class="table-select-btn" *ngIf="orderType === 'Dine-in'">
-          {{ tableNumber ? tableNumber : 'Chọn bàn trên sơ đồ...' }}
-        </button>
         <input
-          *ngIf="orderType === 'Takeaway'"
           type="text"
           [(ngModel)]="tableNumber"
+          (ngModelChange)="persistCart()"
           placeholder="Ghi chú đơn mang về..."
           class="table-input"
         />
@@ -747,71 +754,97 @@
     <button
       (click)="confirmPayment()"
       [disabled]="isSubmittingOrder || (paymentMethod === 'cash' && (!cashReceived || cashReceived < orderTotal))"
+      [class.is-loading]="isSubmittingOrder"
       class="btn-confirm-pay"
     >
-      {{ isSubmittingOrder ? 'Đang xử lý...' : '✓ Xác nhận thanh toán' }}
+      ✓ Xác nhận thanh toán
     </button>
   </div>
 </div>
 
-<!-- ═══════════ SUCCESS / BILL MODAL ═══════════ -->
+<!-- ═══════════ SUCCESS / BILL MODAL — ANIMATION MÁY IN ═══════════ -->
 <div class="modal-backdrop success-backdrop" *ngIf="showSuccessModal" [@modalBackdrop]>
-  <div class="modal bill-modal" [@fadeScale]>
-    <div class="bill-header">
-      <div class="bill-logo">☕</div>
-      <h2>CÀ PHÊ POS</h2>
-      <p>Đơn hàng #{{ orderNumber }}</p>
-      <p class="bill-date">{{ orderType }} · {{ tableNumber || 'Không có ghi chú' }}</p>
+  <div class="printer-rig" [@fadeScale]>
+    <!-- Thân máy in (cố định phía trên) -->
+    <div class="printer-body">
+      <div class="printer-vents">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="printer-slot"></div>
     </div>
 
-    <div class="bill-items">
-      <div class="bill-item" *ngFor="let item of orderItems">
-        <div class="bill-item-main">
-          <span class="bill-item-name">{{ item.product.name }}</span>
-          <span>×{{ item.quantity }}</span>
-          <span class="bill-item-price">{{ itemLineTotal(item) | number }}đ</span>
+    <!-- Giấy hoá đơn trượt ra từ khe máy in -->
+    <div class="receipt-paper-wrap">
+      <div class="receipt-paper">
+        <div class="bill-header">
+          <div class="bill-logo">☕</div>
+          <h2>CÀ PHÊ POS</h2>
+          <p>Đơn hàng #{{ orderNumber }}</p>
+          <p class="bill-date">{{ orderType === 'Takeaway' ? 'Mang về' : 'Tại bàn' }} · {{ tableNumber || 'Không có ghi chú' }}</p>
+          <p class="bill-meta">
+            🕐 {{ printedAt | date: 'HH:mm · dd/MM/yyyy' }}
+          </p>
+          <p class="bill-meta" *ngIf="currentUser?.name">
+            👤 NV order: {{ currentUser?.name }}
+          </p>
         </div>
-        <!-- Options line -->
-        <p
-          class="bill-item-opts"
-          *ngIf="
-            item.toppings.length > 0 ||
-            item.note ||
-            item.size !== 'M' ||
-            item.itemDiscountPercent > 0
-          "
-        >
-          {{ item.size }}
-          · {{ item.temperature === 'hot' ? 'Nóng' : item.temperature === 'ice' ? 'Đá' : 'Ấm' }} ·
-          {{ item.sugarPercent }}% đường
-          <span *ngIf="item.toppings.length > 0"> · {{ item.toppings | json }}</span>
-          <span *ngIf="item.itemDiscountPercent > 0"> · Giảm {{ item.itemDiscountPercent }}%</span>
-          <span *ngIf="item.note"> · {{ item.note }}</span>
-        </p>
+
+        <div class="bill-items">
+          <div class="bill-item" *ngFor="let item of orderItems">
+            <div class="bill-item-main">
+              <span class="bill-item-name">{{ item.product.name }}</span>
+              <span>×{{ item.quantity }}</span>
+              <span class="bill-item-price">{{ itemLineTotal(item) | number }}đ</span>
+            </div>
+            <!-- Options: hiện dạng chip gọn gàng, dễ đọc thay vì 1 dòng dài -->
+            <div
+              class="bill-item-opts-row"
+              *ngIf="
+                item.toppings.length > 0 ||
+                item.note ||
+                item.size !== 'M' ||
+                item.itemDiscountPercent > 0
+              "
+            >
+              <span class="opt-chip" *ngIf="item.size !== 'M'">{{ item.size }}</span>
+              <span class="opt-chip">{{ tempLabel(item.temperature) }}</span>
+              <span class="opt-chip">{{ item.sugarPercent }}% đường</span>
+              <span class="opt-chip topping" *ngFor="let t of item.toppings">{{ t.name }}</span>
+              <span class="opt-chip discount" *ngIf="item.itemDiscountPercent > 0"
+                >−{{ item.itemDiscountPercent }}%</span
+              >
+            </div>
+            <p class="bill-item-note" *ngIf="item.note">📝 {{ item.note }}</p>
+          </div>
+        </div>
+
+        <div class="bill-summary">
+          <div class="bill-row" *ngIf="discountAmount > 0">
+            <span>Chiết khấu ({{ discountPercent }}%)</span>
+            <span>−{{ discountAmount | number }}đ</span>
+          </div>
+          <div class="bill-row total">
+            <span>TỔNG</span>
+            <span>{{ orderTotal | number }}đ</span>
+          </div>
+          <div class="bill-row" *ngIf="paymentMethod === 'cash' && cashReceived">
+            <span>Tiền nhận</span><span>{{ cashReceived | number }}đ</span>
+          </div>
+          <div class="bill-row change" *ngIf="paymentMethod === 'cash' && cashReceived">
+            <span>Tiền thối</span><span>{{ change | number }}đ</span>
+          </div>
+          <div class="bill-row" *ngIf="paymentMethod === 'transfer'">
+            <span>Thanh toán</span><span>Chuyển khoản</span>
+          </div>
+        </div>
+
+        <p class="bill-thanks">Cảm ơn quý khách! Hẹn gặp lại ☕</p>
+        <div class="bill-footer">
+          <p>📶 Wifi: <strong>DuongGiaBao250506</strong></p>
+        </div>
+        <div class="receipt-tear-edge"></div>
       </div>
     </div>
-
-    <div class="bill-summary">
-      <div class="bill-row" *ngIf="discountAmount > 0">
-        <span>Chiết khấu ({{ discountPercent }}%)</span>
-        <span>−{{ discountAmount | number }}đ</span>
-      </div>
-      <div class="bill-row total">
-        <span>TỔNG</span>
-        <span>{{ orderTotal | number }}đ</span>
-      </div>
-      <div class="bill-row" *ngIf="paymentMethod === 'cash' && cashReceived">
-        <span>Tiền nhận</span><span>{{ cashReceived | number }}đ</span>
-      </div>
-      <div class="bill-row change" *ngIf="paymentMethod === 'cash' && cashReceived">
-        <span>Tiền thối</span><span>{{ change | number }}đ</span>
-      </div>
-      <div class="bill-row" *ngIf="paymentMethod === 'transfer'">
-        <span>Thanh toán</span><span>Chuyển khoản</span>
-      </div>
-    </div>
-
-    <p class="bill-thanks">Cảm ơn quý khách! Hẹn gặp lại ☕</p>
 
     <div class="bill-actions no-print">
       <button (click)="printBill()" class="btn-print">
@@ -820,7 +853,7 @@
           <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
           <rect x="6" y="14" width="12" height="8" />
         </svg>
-        In bill
+        Xem lại / In lại
       </button>
       <button (click)="closeSuccessAndReset()" class="btn-new-order">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -859,6 +892,9 @@
         (keyup.enter)="addTable()"
       />
       <button (click)="addTable()">+ Thêm bàn</button>
+      <button class="btn-auto-arrange" (click)="autoArrangeTables()" title="Dàn đều các bàn đang bị chồng vị trí">
+        🧹 Sắp xếp lại tự động
+      </button>
     </div>
 
     <div class="floorplan-legend">

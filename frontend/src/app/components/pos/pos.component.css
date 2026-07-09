@@ -127,6 +127,88 @@
   gap: 12px;
 }
 
+.nav-left-group {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* ── Nút chọn bàn nổi bật ở header ── */
+.nav-table-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px 8px 14px;
+  border-radius: 14px;
+  border: none;
+  background: var(--bg3);
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.nav-table-select:hover {
+  transform: translateY(-1px) scale(1.02);
+}
+.nav-table-select:active {
+  transform: translateY(0) scale(0.98);
+}
+/* viền chạy màu liên tục (conic gradient xoay) */
+.nav-table-select::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  z-index: -2;
+  border-radius: 16px;
+  background: conic-gradient(
+    from 0deg,
+    var(--accent),
+    var(--cyan),
+    var(--purple),
+    var(--accent)
+  );
+  animation: table-border-spin 3.5s linear infinite;
+}
+.nav-table-select::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  border-radius: 12px;
+  background: var(--bg3);
+}
+@keyframes table-border-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.nav-table-icon {
+  font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(0 0 6px var(--accent-glow-strong));
+}
+.nav-table-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.25;
+}
+.nav-table-label {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+}
+.nav-table-value {
+  font-size: 14px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--accent-light), var(--cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 .nav-logo {
   width: 40px;
   height: 40px;
@@ -888,6 +970,14 @@
   font-weight: 800;
   cursor: pointer;
   white-space: nowrap;
+}
+.btn-auto-arrange {
+  background: var(--bg3) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+}
+.btn-auto-arrange:hover {
+  border-color: var(--purple) !important;
 }
 
 .floorplan-legend {
@@ -1768,12 +1858,197 @@
   opacity: 0.35;
   cursor: not-allowed;
 }
+.btn-confirm-pay.is-loading {
+  opacity: 1;
+  cursor: progress;
+  animation: confirm-pay-pulse 0.9s ease-in-out infinite;
+}
+@keyframes confirm-pay-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.72;
+    transform: scale(0.985);
+  }
+}
 
 /* ══════════════════════════════════════════
-   BILL MODAL
+   BILL MODAL — ANIMATION MÁY IN
 ══════════════════════════════════════════ */
-.bill-modal {
+.printer-rig {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
   max-width: 380px;
+}
+
+/* ── Thân máy in (cố định) ── */
+.printer-body {
+  width: 100%;
+  background: linear-gradient(145deg, var(--bg3), var(--bg4));
+  border: 1px solid var(--border);
+  border-radius: 16px 16px 5px 5px;
+  padding: 14px 20px 12px;
+  box-shadow:
+    var(--shadow-lg),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  position: relative;
+  z-index: 2;
+  animation: printer-rumble 0.85s ease-in-out;
+}
+@keyframes printer-rumble {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  10%,
+  30%,
+  50%,
+  70% {
+    transform: translateY(-1px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateY(1px);
+  }
+}
+.printer-vents {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+.printer-vents span {
+  width: 22px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg);
+}
+.printer-slot {
+  height: 9px;
+  border-radius: 5px;
+  background: #050810;
+  box-shadow:
+    inset 0 3px 6px rgba(0, 0, 0, 0.7),
+    0 0 14px var(--accent-glow-strong);
+}
+
+/* ── Cửa sổ giấy trượt ra (che phần giấy chưa "in" tới) ── */
+.receipt-paper-wrap {
+  width: calc(100% - 20px);
+  max-height: 56vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 1;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+}
+.receipt-paper-wrap::-webkit-scrollbar {
+  width: 4px;
+}
+.receipt-paper-wrap::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 2px;
+}
+
+/* ── Giấy hoá đơn: nền giấy in nhiệt, chữ tối, font monospace ── */
+.receipt-paper {
+  background: #fbf6ea;
+  color: #2b211b;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  border-radius: 0 0 4px 4px;
+  transform: translateY(-100%);
+  animation: paper-slide-out 0.85s 0.05s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes paper-slide-out {
+  0% {
+    transform: translateY(-102%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.receipt-tear-edge {
+  height: 11px;
+  background:
+    linear-gradient(-45deg, transparent 6px, #fbf6ea 6px) 0 -6px / 12px 12px repeat-x,
+    linear-gradient(45deg, transparent 6px, #fbf6ea 6px) 0 -6px / 12px 12px repeat-x;
+}
+
+/* Đè lại màu chữ tối trên nền dark-theme cũ của các khối bill-* để đọc được trên giấy sáng */
+.receipt-paper .bill-header {
+  border-bottom: 1px dashed rgba(43, 33, 27, 0.25);
+}
+.receipt-paper .bill-header h2,
+.receipt-paper .bill-header p,
+.receipt-paper .bill-item-price,
+.receipt-paper .bill-row.total span:last-child {
+  background: none;
+  -webkit-text-fill-color: unset;
+  color: #2b211b !important;
+}
+.receipt-paper .bill-date,
+.receipt-paper .bill-meta,
+.receipt-paper .bill-item-opts,
+.receipt-paper .bill-item-note,
+.receipt-paper .bill-row,
+.receipt-paper .bill-thanks,
+.receipt-paper .bill-footer {
+  color: rgba(43, 33, 27, 0.65) !important;
+}
+.receipt-paper .opt-chip {
+  background: rgba(43, 33, 27, 0.08);
+  color: rgba(43, 33, 27, 0.7);
+}
+.receipt-paper .opt-chip.topping {
+  background: rgba(201, 123, 61, 0.16);
+  color: #8a4a1f;
+}
+.receipt-paper .opt-chip.discount {
+  background: rgba(45, 125, 79, 0.15);
+  color: #2f7d4f;
+}
+.receipt-paper .bill-footer {
+  text-align: center;
+  padding: 0 16px 14px;
+  font-size: 11px;
+  border-top: 1px dashed rgba(43, 33, 27, 0.25);
+  margin: 0 20px;
+  padding-top: 10px;
+}
+.receipt-paper .bill-footer strong {
+  color: #2b211b;
+}
+.receipt-paper .bill-items,
+.receipt-paper .bill-summary {
+  border-bottom: 1px dashed rgba(43, 33, 27, 0.25);
+}
+.receipt-paper .bill-row.total {
+  border-top: 1px dashed rgba(43, 33, 27, 0.35);
+}
+.receipt-paper .bill-row.change {
+  color: #2f7d4f !important;
+}
+
+.bill-actions {
+  animation: fade-in-delayed 0.4s 0.7s ease-out both;
+}
+@keyframes fade-in-delayed {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .bill-header {
   text-align: center;
@@ -1803,6 +2078,12 @@
   color: var(--text-muted);
   margin-top: 4px;
 }
+.bill-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  font-weight: 400 !important;
+}
 
 .bill-items {
   padding: 16px 24px;
@@ -1813,6 +2094,7 @@
 }
 .bill-item {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   font-size: 13px;
 }
@@ -1917,12 +2199,23 @@
   .success-backdrop {
     background: white !important;
   }
-  .bill-modal {
+  .printer-body,
+  .receipt-tear-edge {
+    display: none !important;
+  }
+  .receipt-paper-wrap {
+    box-shadow: none !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+  .receipt-paper {
     box-shadow: none !important;
     border: none !important;
     max-width: 100% !important;
     background: white !important;
     color: black !important;
+    transform: none !important;
+    animation: none !important;
   }
   .bill-header h2,
   .bill-item-price,
@@ -1965,6 +2258,12 @@
   }
   .nav-user {
     display: none;
+  }
+  .nav-table-label {
+    display: none;
+  }
+  .nav-table-select {
+    padding: 8px 12px;
   }
   .product-grid {
     grid-template-columns: 1fr 1fr;
@@ -2297,12 +2596,34 @@
   gap: 8px;
   align-items: center;
 }
-.bill-item-opts {
+.bill-item-opts-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-left: 4px;
+}
+.opt-chip {
+  font-size: 10.5px;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: rgba(43, 33, 27, 0.08);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.opt-chip.topping {
+  background: rgba(201, 123, 61, 0.14);
+}
+.opt-chip.discount {
+  background: rgba(45, 125, 79, 0.14);
+  color: #2f7d4f;
+  font-weight: 700;
+}
+.bill-item-note {
   font-size: 11px;
   color: var(--text-muted);
-  margin-top: 2px;
   font-style: italic;
   padding-left: 4px;
+  margin: 0;
 }
 .price-breakdown {
   margin-top: 4px;

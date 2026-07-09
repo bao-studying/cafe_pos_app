@@ -45,6 +45,40 @@ exports.getOrderSuggestions = async (req, res) => {
  * ═══════════════════════════════════════════════════
  */
 
+// POST /api/users — admin tạo tài khoản nhân viên mới
+exports.createStaff = async (req, res) => {
+  try {
+    const { name, phone, password, hourlyRate } = req.body;
+    if (!name || !phone || !password) {
+      return res
+        .status(400)
+        .json({ message: "Vui lòng nhập đủ tên, số điện thoại và mật khẩu." });
+    }
+
+    const existing = await User.findOne({ phone });
+    if (existing) {
+      return res
+        .status(400)
+        .json({ message: "Số điện thoại này đã được sử dụng." });
+    }
+
+    const user = await User.create({
+      name,
+      phone,
+      password, // TODO: hash bằng bcrypt khi làm phần bảo mật
+      role: "staff",
+      hourlyRate: Number(hourlyRate) || 0,
+    });
+
+    const { password: _pw, ...safeUser } = user.toObject();
+    res
+      .status(201)
+      .json({ message: "Đã tạo tài khoản nhân viên.", user: safeUser });
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
+  }
+};
+
 // GET /api/users?role=staff — danh sách nhân viên (mặc định lọc role=staff)
 exports.getUsers = async (req, res) => {
   try {

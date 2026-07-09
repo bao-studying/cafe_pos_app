@@ -1,5 +1,6 @@
 const ShiftTemplate = require("../models/ShiftTemplate");
 const ShiftRegistration = require("../models/ShiftRegistration");
+const ScheduleSlot = require("../models/ScheduleSlot");
 const { getIO } = require("../socket");
 
 /**
@@ -79,12 +80,34 @@ exports.deleteShiftTemplate = async (req, res) => {
  * ═══════════════════════════════════════════════════
  */
 
-// POST /api/shifts/register — nhân viên gửi đăng ký ca
+ // POST /api/shifts/register — nhân viên gửi đăng ký ca
 exports.registerShift = async (req, res) => {
   try {
     const { staffId, shiftTemplateId, date } = req.body;
     if (!staffId || !shiftTemplateId || !date) {
       return res.status(400).json({ message: "Thiếu thông tin đăng ký ca." });
+    }
+
+    // Xác định Thứ trong tuần (1 = Thứ 2 ... 7 = Chủ nhật) để tra sức chứa đã set
+    const jsDay = new Date(date).getDay(); // 0 = CN ... 6 = Thứ 7
+    const dayOfWeek = jsDay === 0 ? 7 : jsDay;
+
+    const slotConfig = await ScheduleSlot.findOne({ dayOfWeek, shiftTemplateId });
+    if (slotConfig) {
+      const dayStart = new Date(date);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(date);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const currentCount = await ShiftRegistration.countDocuments({
+        shiftTemplateId,
+        date: { $gte: dayStart, $lte: dayEnd },
+        status: { $ne: "rejected" },
+      });
+
+      if (currentCount >= slotConfig.capacity) {
+        return res.status(400).json({ message: "Ô ca này đã đủ số lượng đăng ký, vui lòng chọn ô khác." });
+      }
     }
 
     const registration = await ShiftRegistration.create({
@@ -101,17 +124,10 @@ exports.registerShift = async (req, res) => {
     // Báo real-time cho admin có đăng ký ca mới cần duyệt
     getIO().emit("shift:registration-created", populated);
 
-    res
-      .status(201)
-      .json({
-        message: "Đã gửi đăng ký ca, chờ admin duyệt.",
-        registration: populated,
-      });
+    res.status(201).json({ message: "Đã gửi đăng ký ca, chờ admin duyệt.", registration: populated });
   } catch (error) {
     if (error.code === 11000) {
-      return res
-        .status(400)
-        .json({ message: "Bạn đã đăng ký ca này trong ngày đã chọn rồi." });
+      return res.status(400).json({ message: "Bạn đã đăng ký ca này trong ngày đã chọn rồi." });
     }
     res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
   }
