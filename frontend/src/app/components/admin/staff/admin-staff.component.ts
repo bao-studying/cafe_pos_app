@@ -15,36 +15,30 @@ import {
   ShiftRegistration,
   AttendanceRecord,
   Payroll,
-  ScheduleSlotConfig,
+  AdminBoardRow,
+  AdminBoardCell,
 } from '../../../services/staff.service';
 import { SocketService } from '../../../services/socket.service';
 
-type TopTab = 'list' | 'approvals' | 'templates' | 'schedule';
+type TopTab = 'list' | 'schedule' | 'templates';
 type DrawerTab = 'info' | 'shifts' | 'payroll';
 
-export const WEEK_DAYS = [
-  { value: 1, label: 'Thứ 2' },
-  { value: 2, label: 'Thứ 3' },
-  { value: 3, label: 'Thứ 4' },
-  { value: 4, label: 'Thứ 5' },
-  { value: 5, label: 'Thứ 6' },
-  { value: 6, label: 'Thứ 7' },
-  { value: 7, label: 'Chủ nhật' },
-];
+const WEEK_DAY_NAMES = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
 
-interface ScheduleGridCell {
+interface WeekColumn {
   dayOfWeek: number;
-  capacity: number | null;
-  configId: string | null;
+  label: string;
+  dateLabel: string; // dd/MM
+  dateStr: string; // YYYY-MM-DD
 }
 
-interface ScheduleGridRow {
-  templateId: string;
-  name: string;
+interface ManageCellInfo {
+  shiftTemplateId: string;
+  shiftName: string;
   startTime: string;
   endTime: string;
-  isActive: boolean;
-  cells: ScheduleGridCell[];
+  date: string;
+  capacity: number;
 }
 
 @Component({
@@ -63,7 +57,7 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
 
   // ── Danh sách nhân viên ──
   staffList: StaffUser[] = [];
-  onlineStaffIds = new Set<string>(); // staffId đang có ca "checked-in"
+  onlineStaffIds = new Set<string>();
 
   // ── Thêm nhân viên mới ──
   isAddModalOpen = false;
@@ -80,21 +74,25 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
   staffPayrolls: Payroll[] = [];
   payrollEstimate: any = null;
 
-  // ── Duyệt đăng ký ca ──
-  pendingRegistrations: ShiftRegistration[] = [];
-
   // ── Ca mẫu ──
   shiftTemplates: ShiftTemplate[] = [];
   newTemplate = { name: '', startTime: '', endTime: '' };
 
-  // ── Bảng lịch làm việc (thiết lập sức chứa Thứ × Ca mẫu) ──
-  // ĐÃ SỬA: bỏ capacityMap/configIdMap dạng key động (nguyên nhân gây mất số khi đổi ô),
-  // chuyển sang scheduleGridRows — mỗi ô là 1 object thật, ngModel bind thẳng vào object đó.
-  weekDays = WEEK_DAYS;
-  scheduleSlotConfigs: ScheduleSlotConfig[] = [];
-  scheduleGridRows: ScheduleGridRow[] = [];
-  private shiftTemplatesLoaded = false;
-  private scheduleSlotsLoaded = false;
+  // ── LỊCH LÀM VIỆC (gộp Duyệt đăng ký + Thiết lập sức chứa) ──
+  currentWeekStart = ''; // Thứ 2 của tuần đang xem (YYYY-MM-DD)
+  weekStartLabel = '';
+  weekEndLabel = '';
+  weekColumns: WeekColumn[] = [];
+  adminBoardRows: AdminBoardRow[] = [];
+  isBoardLoading = false;
+  isEditMode = false;
+  pickedDate = ''; // dùng cho ô chọn ngày để nhảy tới tuần bất kỳ
+
+  // Popup quản lý duyệt/huỷ theo từng ô
+  isManageOpen = false;
+  manageCell: ManageCellInfo | null = null;
+  manageRegistrations: ShiftRegistration[] = [];
+  isManageLoading = false;
 
   isSaving = false;
 
@@ -106,12 +104,28 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadStaffList();
-    this.loadPendingRegistrations();
     this.loadShiftTemplates();
     this.loadOpenAttendance();
-    this.loadScheduleSlots();
 
-    // Cập nhật real-time khi có nhân viên check-in/out ở nơi khác (không cần F5)
+    const today = this.todayStr();
+    this.pickedDate = today;
+    this.currentWeekStart = this.mondayOfDate(today);
+    this.buildWeekColumns();
+    this.loadAdminBoard();
+
+    // Real-time: bất kỳ đăng ký/duyệt/từ chối ca nào cũng làm mới lại bảng lịch admin đang xem
+    this.subs.push(
+      this.socketService.on('shift:registration-created').subscribe(() => {
+        this.loadAdminBoard();
+        if (this.isManageOpen) this.refreshManagePopup();
+      }),
+    );
+    this.subs.push(
+      this.socketService.on('shift:registration-updated').subscribe(() => {
+        this.loadAdminBoard();
+        if (this.isManageOpen) this.refreshManagePopup();
+      }),
+    );
     this.subs.push(
       this.socketService.on('attendance:check-in').subscribe((data: any) => {
         if (!data) return;
@@ -124,12 +138,6 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
         if (!data) return;
         this.onlineStaffIds.delete(this.extractId(data.staffId));
         this.cdr.markForCheck();
-      }),
-    );
-    this.subs.push(
-      this.socketService.on('shift:registration-created').subscribe((data: any) => {
-        if (!data) return;
-        this.loadPendingRegistrations();
       }),
     );
     this.subs.push(
@@ -150,29 +158,8 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
 
   private extractId(value: any): string {
     if (typeof value === 'string' && value.trim()) return value;
-    if (
-      value &&
-      typeof value === 'object' &&
-      '_id' in value &&
-      typeof (value as any)._id === 'string'
-    ) {
-      return (value as any)._id;
-    }
+    if (value && typeof value === 'object' && typeof value._id === 'string') return value._id;
     return '';
-  }
-
-  private getSafeId(value: unknown): string | null {
-    if (typeof value === 'string' && value.trim()) return value;
-    if (
-      value &&
-      typeof value === 'object' &&
-      '_id' in value &&
-      typeof (value as any)._id === 'string' &&
-      (value as any)._id.trim()
-    ) {
-      return (value as any)._id;
-    }
-    return null;
   }
 
   switchTopTab(tab: TopTab) {
@@ -192,7 +179,6 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
     });
   }
 
-  // Xác định nhân viên nào đang trong ca (checked-in) để hiển thị chấm "Đang làm"
   private loadOpenAttendance() {
     this.staffService.getAttendance().subscribe({
       next: (records) => {
@@ -221,11 +207,7 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
   }
 
   submitNewStaff() {
-    if (
-      !this.newStaff.name.trim() ||
-      !this.newStaff.phone.trim() ||
-      !this.newStaff.password.trim()
-    ) {
+    if (!this.newStaff.name.trim() || !this.newStaff.phone.trim() || !this.newStaff.password.trim()) {
       return alert('Vui lòng nhập đủ tên, số điện thoại và mật khẩu.');
     }
     this.isSaving = true;
@@ -354,37 +336,6 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** ═══════════════ DUYỆT ĐĂNG KÝ CA ═══════════════ */
-
-  loadPendingRegistrations() {
-    this.staffService.getShiftRegistrations({ status: 'pending' }).subscribe({
-      next: (data) => {
-        this.pendingRegistrations = Array.isArray(data) ? data : [];
-        this.cdr.markForCheck();
-      },
-    });
-  }
-
-  approveRegistration(reg: ShiftRegistration) {
-    if (!reg?._id) return;
-    this.staffService.updateShiftRegistration(reg._id, 'approved').subscribe({
-      next: () => this.loadPendingRegistrations(),
-      error: (err) => alert(err.error?.message || 'Lỗi duyệt đăng ký ca!'),
-    });
-  }
-
-  rejectRegistration(reg: ShiftRegistration) {
-    if (!reg?._id) return;
-    this.staffService.updateShiftRegistration(reg._id, 'rejected').subscribe({
-      next: () => this.loadPendingRegistrations(),
-      error: (err) => alert(err.error?.message || 'Lỗi từ chối đăng ký ca!'),
-    });
-  }
-
-  staffName(value: StaffUser | string): string {
-    return typeof value === 'string' ? value : value?.name || '';
-  }
-
   templateLabel(value: ShiftTemplate | string): string {
     if (typeof value === 'string') return value;
     return value ? `${value.name} (${value.startTime} - ${value.endTime})` : '';
@@ -396,10 +347,7 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
     this.staffService.getShiftTemplates().subscribe({
       next: (data) => {
         const templates = Array.isArray(data) ? data : [];
-        // Sắp xếp theo giờ bắt đầu để bảng lịch và tab "Ca mẫu" luôn hiện đúng thứ tự sáng → tối
         this.shiftTemplates = [...templates].sort((a, b) => a.startTime.localeCompare(b.startTime));
-        this.shiftTemplatesLoaded = true;
-        this.rebuildScheduleGrid();
         this.cdr.markForCheck();
       },
     });
@@ -413,6 +361,7 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
       next: () => {
         this.newTemplate = { name: '', startTime: '', endTime: '' };
         this.loadShiftTemplates();
+        this.loadAdminBoard();
       },
       error: (err) => alert(err.error?.message || 'Lỗi thêm ca mẫu!'),
     });
@@ -420,112 +369,249 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
 
   toggleTemplateActive(template: ShiftTemplate) {
     if (!template?._id) return;
-    this.staffService
-      .updateShiftTemplate(template._id, { isActive: !template.isActive })
-      .subscribe({
-        next: () => this.loadShiftTemplates(),
-      });
+    this.staffService.updateShiftTemplate(template._id, { isActive: !template.isActive }).subscribe({
+      next: () => {
+        this.loadShiftTemplates();
+        this.loadAdminBoard();
+      },
+    });
   }
 
   deleteTemplate(template: ShiftTemplate) {
     if (!template?._id) return;
     if (!confirm(`Xoá ca mẫu "${template.name}"?`)) return;
     this.staffService.deleteShiftTemplate(template._id).subscribe({
-      next: () => this.loadShiftTemplates(),
+      next: () => {
+        this.loadShiftTemplates();
+        this.loadAdminBoard();
+      },
       error: (err) => alert(err.error?.message || 'Lỗi xoá ca mẫu!'),
     });
   }
 
-  /** ═══════════════ BẢNG LỊCH LÀM VIỆC (sức chứa) ═══════════════ */
+  /** ═══════════════ LỊCH LÀM VIỆC — điều hướng tuần (thuần local date, không phụ thuộc server) ═══════════════ */
 
-  loadScheduleSlots() {
-    this.staffService.getScheduleSlotConfigs().subscribe({
-      next: (data) => {
-        this.scheduleSlotConfigs = Array.isArray(data) ? data : [];
-        this.scheduleSlotsLoaded = true;
-        this.rebuildScheduleGrid();
+  private todayStr(): string {
+    return this.formatDate(new Date());
+  }
+
+  private formatDate(d: Date): string {
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${mm}-${dd}`;
+  }
+
+  private mondayOfDate(dateStr: string): string {
+    const d = new Date(`${dateStr}T00:00:00`);
+    const day = d.getDay(); // 0 = CN ... 6 = T7 (local)
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return this.formatDate(d);
+  }
+
+  private addDaysToDateStr(dateStr: string, days: number): string {
+    const d = new Date(`${dateStr}T00:00:00`);
+    d.setDate(d.getDate() + days);
+    return this.formatDate(d);
+  }
+
+  private buildWeekColumns() {
+    this.weekColumns = WEEK_DAY_NAMES.map((label, idx) => {
+      const dateStr = this.addDaysToDateStr(this.currentWeekStart, idx);
+      const d = new Date(`${dateStr}T00:00:00`);
+      const dateLabel = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return { dayOfWeek: idx + 1, label, dateLabel, dateStr };
+    });
+  }
+
+  private setWeek(newWeekStart: string) {
+    this.currentWeekStart = newWeekStart;
+    this.pickedDate = newWeekStart;
+    this.buildWeekColumns();
+    this.loadAdminBoard();
+  }
+
+  prevWeek() {
+    this.setWeek(this.addDaysToDateStr(this.currentWeekStart, -7));
+  }
+
+  nextWeek() {
+    this.setWeek(this.addDaysToDateStr(this.currentWeekStart, 7));
+  }
+
+  goToThisWeek() {
+    this.setWeek(this.mondayOfDate(this.todayStr()));
+  }
+
+  jumpToPickedDate() {
+    if (!this.pickedDate) return;
+    this.setWeek(this.mondayOfDate(this.pickedDate));
+  }
+
+  get isCurrentWeek(): boolean {
+    return this.currentWeekStart === this.mondayOfDate(this.todayStr());
+  }
+
+  /** ═══════════════ LỊCH LÀM VIỆC — tải bảng ═══════════════ */
+
+  loadAdminBoard() {
+    this.isBoardLoading = true;
+    this.staffService.getAdminScheduleBoard(this.currentWeekStart).subscribe({
+      next: (board) => {
+        this.weekStartLabel = board.weekStart;
+        this.weekEndLabel = board.weekEnd;
+        this.adminBoardRows = board.rows;
+        this.isBoardLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        console.error('Lỗi tải bảng lịch làm việc:', err);
+        this.isBoardLoading = false;
         this.cdr.markForCheck();
       },
     });
   }
 
-  // Dựng lại lưới (mảng object thật) từ shiftTemplates + scheduleSlotConfigs.
-  // Chỉ dựng lại khi cả 2 nguồn dữ liệu đã tải xong, để tránh flash "mất số" giữa chừng.
-  private rebuildScheduleGrid() {
-    if (!this.shiftTemplatesLoaded || !this.scheduleSlotsLoaded) return;
-
-    this.scheduleGridRows = this.shiftTemplates.map((tpl) => {
-      const cells: ScheduleGridCell[] = this.weekDays.map((day) => {
-        const config = this.scheduleSlotConfigs.find((slot) => {
-          const tplId = this.getSafeId(slot.shiftTemplateId);
-          return tplId === tpl._id && slot.dayOfWeek === day.value;
-        });
-        return {
-          dayOfWeek: day.value,
-          capacity: config ? config.capacity : null,
-          configId: config ? config._id : null,
-        };
-      });
-      return {
-        templateId: tpl._id,
-        name: tpl.name,
-        startTime: tpl.startTime,
-        endTime: tpl.endTime,
-        isActive: tpl.isActive,
-        cells,
-      };
-    });
+  toggleEditMode() {
+    this.isEditMode = !this.isEditMode;
+    this.cdr.markForCheck();
   }
 
-  // ngModel bind thẳng vào `cell` (1 object thật nằm trong scheduleGridRows) —
-  // KHÔNG còn tra cứu qua key động nữa, nên gõ số ở ô nào chỉ ô đó thay đổi,
-  // chuyển sang ô khác không còn bị mất số đã gõ.
-  saveCapacity(templateId: string, cell: ScheduleGridCell) {
-    const value = Number(cell.capacity ?? 0);
+  /** ═══════════════ LỊCH LÀM VIỆC — chỉnh sửa sức chứa (chế độ Edit) ═══════════════ */
+
+  saveCellCapacity(templateId: string, cell: AdminBoardCell) {
+    const value = Number(cell.capacity) || 0;
 
     if (value <= 0) {
       const configId = cell.configId;
-      cell.capacity = null;
+      cell.capacity = 0;
       cell.configId = null;
       this.cdr.markForCheck();
       if (configId) {
         this.staffService.deleteScheduleSlotConfig(configId).subscribe({
-          next: () => {
-            this.scheduleSlotConfigs = this.scheduleSlotConfigs.filter((s) => s._id !== configId);
-          },
           error: () => alert('Lỗi xoá sức chứa!'),
         });
       }
       return;
     }
 
-    this.isSaving = true;
     this.staffService
       .upsertScheduleSlotConfig({
+        weekStart: this.currentWeekStart,
         dayOfWeek: cell.dayOfWeek,
         shiftTemplateId: templateId,
         capacity: value,
       })
       .subscribe({
         next: (res) => {
-          this.isSaving = false;
           const slot = res?.slot;
-          // Chỉ cập nhật đúng ô này (đối tượng cell thật) — các ô khác không bị ảnh hưởng.
           cell.capacity = typeof slot?.capacity === 'number' ? slot.capacity : value;
           cell.configId = slot?._id ?? cell.configId;
-
-          if (slot) {
-            const idx = this.scheduleSlotConfigs.findIndex((s) => s._id === slot._id);
-            if (idx !== -1) this.scheduleSlotConfigs[idx] = slot;
-            else this.scheduleSlotConfigs.push(slot);
-          }
           this.cdr.markForCheck();
         },
-        error: (err) => {
-          this.isSaving = false;
-          alert(err.error?.message || 'Lỗi lưu sức chứa!');
+        error: (err) => alert(err.error?.message || 'Lỗi lưu sức chứa!'),
+      });
+  }
+
+  copyFromPreviousWeek() {
+    const prevWeekStart = this.addDaysToDateStr(this.currentWeekStart, -7);
+    if (!confirm('Sao chép toàn bộ số lượng nhân viên đã set của TUẦN TRƯỚC sang tuần đang xem?\nCác ô đã set riêng ở tuần này sẽ bị ghi đè.')) {
+      return;
+    }
+    this.isSaving = true;
+    this.staffService.copyScheduleWeek(prevWeekStart, this.currentWeekStart).subscribe({
+      next: (res) => {
+        this.isSaving = false;
+        alert(res.message);
+        this.loadAdminBoard();
+      },
+      error: (err) => {
+        this.isSaving = false;
+        alert(err.error?.message || 'Lỗi sao chép tuần!');
+      },
+    });
+  }
+
+  /** ═══════════════ LỊCH LÀM VIỆC — xem trạng thái & popup quản lý duyệt ═══════════════ */
+
+  // 'closed' = chưa mở đăng ký | 'red' = chưa ai đăng ký | 'yellow' = đang chờ duyệt | 'green' = đã chốt duyệt
+  cellViewState(cell: AdminBoardCell): 'closed' | 'red' | 'yellow' | 'green' {
+    if (!cell.capacity || cell.capacity <= 0) return 'closed';
+    if (cell.registeredCount === 0) return 'red';
+    if (cell.pendingCount > 0) return 'yellow';
+    return 'green';
+  }
+
+  openManagePopup(row: AdminBoardRow, cell: AdminBoardCell) {
+    if (this.isEditMode) return; // Chế độ sửa: input sức chứa tự xử lý riêng, không mở popup
+
+    if (!cell.capacity || cell.capacity <= 0) {
+      alert('Ô này chưa được mở đăng ký. Bấm "Chỉnh sửa" để thiết lập số lượng nhân viên trước.');
+      return;
+    }
+
+    this.manageCell = {
+      shiftTemplateId: row.shiftTemplateId,
+      shiftName: row.name,
+      startTime: row.startTime,
+      endTime: row.endTime,
+      date: cell.date,
+      capacity: cell.capacity,
+    };
+    this.isManageOpen = true;
+    this.manageRegistrations = [];
+    this.cdr.markForCheck();
+    this.refreshManagePopup();
+  }
+
+  closeManagePopup() {
+    this.isManageOpen = false;
+    this.manageCell = null;
+    this.cdr.markForCheck();
+  }
+
+  refreshManagePopup() {
+    if (!this.manageCell) return;
+    this.isManageLoading = true;
+    this.staffService
+      .getShiftRegistrations({ date: this.manageCell.date, shiftTemplateId: this.manageCell.shiftTemplateId })
+      .subscribe({
+        next: (data) => {
+          this.manageRegistrations = (Array.isArray(data) ? data : []).filter((r) => r.status !== 'rejected');
+          this.isManageLoading = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.isManageLoading = false;
+          this.cdr.markForCheck();
         },
       });
+  }
+
+  approveInPopup(reg: ShiftRegistration) {
+    if (!reg?._id) return;
+    this.staffService.updateShiftRegistration(reg._id, 'approved').subscribe({
+      next: () => {
+        this.refreshManagePopup();
+        this.loadAdminBoard();
+      },
+      error: (err) => alert(err.error?.message || 'Lỗi duyệt đăng ký ca!'),
+    });
+  }
+
+  rejectInPopup(reg: ShiftRegistration) {
+    if (!reg?._id) return;
+    this.staffService.updateShiftRegistration(reg._id, 'rejected').subscribe({
+      next: () => {
+        this.refreshManagePopup();
+        this.loadAdminBoard();
+      },
+      error: (err) => alert(err.error?.message || 'Lỗi từ chối đăng ký ca!'),
+    });
+  }
+
+  staffName(value: StaffUser | string): string {
+    return typeof value === 'string' ? value : value?.name || '';
   }
 
   trackById(_: number, item: { _id?: string } | null | undefined) {

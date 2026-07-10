@@ -2,6 +2,10 @@ const mongoose = require("mongoose");
 
 const ScheduleSlotSchema = new mongoose.Schema(
   {
+    // Ngày Thứ 2 (00:00) của tuần mà cấu hình này áp dụng.
+    // ĐÃ ĐỔI: trước đây sức chứa là "mẫu lặp lại" theo Thứ (dùng chung mọi tuần),
+    // giờ mỗi tuần có cấu hình RIÊNG để hỗ trợ tính năng "Sao chép từ tuần trước".
+    weekStart: { type: Date, required: true },
     // 1 = Thứ 2 ... 7 = Chủ nhật
     dayOfWeek: { type: Number, required: true, min: 1, max: 7 },
     shiftTemplateId: {
@@ -15,9 +19,9 @@ const ScheduleSlotSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Mỗi (Thứ, Ca mẫu) chỉ có 1 cấu hình sức chứa
+// Mỗi (Tuần, Thứ, Ca mẫu) chỉ có 1 cấu hình sức chứa
 ScheduleSlotSchema.index(
-  { dayOfWeek: 1, shiftTemplateId: 1 },
+  { weekStart: 1, dayOfWeek: 1, shiftTemplateId: 1 },
   { unique: true },
 );
 

@@ -7,12 +7,10 @@ const connectDB = require("./config/db.js");
 const User = require("./models/User.js");
 const { initSocket } = require("./socket.js");
 
-// ĐÃ SỬA: Chuyển dòng import routes lỗi thành require đồng bộ với toàn bộ file
-
 // 1. Cấu hình dotenv phải nằm ĐẦU TIÊN để nạp các biến môi trường
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
-// 2. Sau đó mới gọi kết nối database
+// 2. Gọi kết nối database
 connectDB();
 
 const app = express();
@@ -55,7 +53,7 @@ app.post("/api/login", (req, res) => {
   });
 });
 
-// Các tuyến đường API (giữ nguyên)
+// Các tuyến đường API (Đã xóa bỏ các dòng trùng lặp)
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/orders", require("./routes/orderRoutes"));
 app.use("/api/products", require("./routes/productRoutes"));
@@ -70,7 +68,24 @@ app.use("/api/payroll", require("./routes/payrollRoutes"));
 app.use("/api/pos", require("./routes/posRoutes"));
 app.use("/api/schedule", require("./routes/scheduleRoutes"));
 
-// Dùng httpServer thay vì app.listen trực tiếp để gắn được Socket.io lên cùng cổng
+// ==========================================
+// 🚀 CẤU HÌNH ĐỂ TRẢ VỀ GIAO DIỆN FRONTEND TRÊN RENDER (ĐÃ FIX LỖI EXPRESS V5)
+// ==========================================
+// 1. Phục vụ các file tĩnh (html, css, js) từ thư mục dist của Frontend sau khi build
+app.use(express.static(path.join(__dirname, "../frontend/dist")));
+
+// 2. Dùng middleware thay cho app.get('*') để tránh triệt để lỗi PathError [TypeError] của Express v5
+app.use((req, res, next) => {
+  // Nếu request không bắt đầu bằng /api thì trả về file index.html của Frontend
+  if (!req.url.startsWith("/api")) {
+    return res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
+  }
+  next();
+});
+
+// ==========================================
+// KẾT NỐI SERVER VÀ SOCKET.IO (Chỉ khai báo DUY NHẤT một lần)
+// ==========================================
 const httpServer = http.createServer(app);
 initSocket(httpServer);
 

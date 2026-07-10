@@ -2,6 +2,7 @@ const ShiftTemplate = require("../models/ShiftTemplate");
 const ShiftRegistration = require("../models/ShiftRegistration");
 const ScheduleSlot = require("../models/ScheduleSlot");
 const { getIO } = require("../socket");
+const { getMondayOfDate } = require("./scheduleController");
 
 /**
  * ═══════════════════════════════════════════════════
@@ -80,7 +81,7 @@ exports.deleteShiftTemplate = async (req, res) => {
  * ═══════════════════════════════════════════════════
  */
 
- // POST /api/shifts/register — nhân viên gửi đăng ký ca
+// POST /api/shifts/register — nhân viên gửi đăng ký ca
 exports.registerShift = async (req, res) => {
   try {
     const { staffId, shiftTemplateId, date } = req.body;
@@ -88,16 +89,21 @@ exports.registerShift = async (req, res) => {
       return res.status(400).json({ message: "Thiếu thông tin đăng ký ca." });
     }
 
-    // Xác định Thứ trong tuần (1 = Thứ 2 ... 7 = Chủ nhật) để tra sức chứa đã set
-    const jsDay = new Date(date).getDay(); // 0 = CN ... 6 = Thứ 7
+    // Xác định Thứ trong tuần (1 = Thứ 2 ... 7 = Chủ nhật) và ngày Thứ 2 của tuần chứa ngày đăng ký,
+    // để tra đúng cấu hình sức chứa của TUẦN ĐÓ (sức chứa giờ set riêng theo từng tuần, không còn dùng chung)
+    const jsDay = new Date(date).getUTCDay(); // 0 = CN ... 6 = Thứ 7
     const dayOfWeek = jsDay === 0 ? 7 : jsDay;
+    const weekStartOfDate = getMondayOfDate(date);
 
-    const slotConfig = await ScheduleSlot.findOne({ dayOfWeek, shiftTemplateId });
+    const slotConfig = await ScheduleSlot.findOne({
+      weekStart: weekStartOfDate,
+      dayOfWeek,
+      shiftTemplateId,
+    });
     if (slotConfig) {
       const dayStart = new Date(date);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(date);
-      dayEnd.setHours(23, 59, 59, 999);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setUTCHours(23, 59, 59, 999);
 
       const currentCount = await ShiftRegistration.countDocuments({
         shiftTemplateId,
@@ -106,7 +112,11 @@ exports.registerShift = async (req, res) => {
       });
 
       if (currentCount >= slotConfig.capacity) {
-        return res.status(400).json({ message: "Ô ca này đã đủ số lượng đăng ký, vui lòng chọn ô khác." });
+        return res
+          .status(400)
+          .json({
+            message: "Ô ca này đã đủ số lượng đăng ký, vui lòng chọn ô khác.",
+          });
       }
     }
 
@@ -124,22 +134,36 @@ exports.registerShift = async (req, res) => {
     // Báo real-time cho admin có đăng ký ca mới cần duyệt
     getIO().emit("shift:registration-created", populated);
 
-    res.status(201).json({ message: "Đã gửi đăng ký ca, chờ admin duyệt.", registration: populated });
+    res
+      .status(201)
+      .json({
+        message: "Đã gửi đăng ký ca, chờ admin duyệt.",
+        registration: populated,
+      });
   } catch (error) {
     if (error.code === 11000) {
-      return res.status(400).json({ message: "Bạn đã đăng ký ca này trong ngày đã chọn rồi." });
+      return res
+        .status(400)
+        .json({ message: "Bạn đã đăng ký ca này trong ngày đã chọn rồi." });
     }
     res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
   }
 };
 
-// GET /api/shifts/registrations?status=pending&staffId=...
+// GET /api/shifts/registrations?status=pending&staffId=...&shiftTemplateId=...&date=YYYY-MM-DD
 exports.getShiftRegistrations = async (req, res) => {
   try {
-    const { status, staffId } = req.query;
+    const { status, staffId, shiftTemplateId, date } = req.query;
     const filter = {};
     if (status) filter.status = status;
     if (staffId) filter.staffId = staffId;
+    if (shiftTemplateId) filter.shiftTemplateId = shiftTemplateId;
+    if (date) {
+      const dayStart = new Date(date);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setUTCHours(23, 59, 59, 999);
+      filter.date = { $gte: dayStart, $lte: dayEnd };
+    }
 
     const registrations = await ShiftRegistration.find(filter)
       .populate("staffId", "name phone")

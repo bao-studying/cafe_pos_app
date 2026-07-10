@@ -49,13 +49,7 @@ export interface Payroll {
   status: 'draft' | 'finalized';
 }
 
-export interface ScheduleSlotConfig {
-  _id: string;
-  dayOfWeek: number; // 1 = Thứ 2 ... 7 = Chủ nhật
-  shiftTemplateId: ShiftTemplate | string;
-  capacity: number;
-}
-
+// ── Bảng lịch làm việc — NHÂN VIÊN (ẩn danh) ──
 export interface ScheduleBoardCell {
   dayOfWeek: number;
   date: string; // YYYY-MM-DD
@@ -74,6 +68,32 @@ export interface ScheduleBoard {
   weekStart: string;
   weekEnd: string;
   cells: ScheduleBoardCell[];
+}
+
+// ── Bảng lịch làm việc — ADMIN (đầy đủ, kèm tên) ──
+export interface AdminBoardCell {
+  date: string; // YYYY-MM-DD
+  dayOfWeek: number;
+  capacity: number; // 0 = chưa mở đăng ký
+  configId: string | null;
+  registeredCount: number;
+  pendingCount: number;
+  approvedCount: number;
+  approvedNames: string[];
+}
+
+export interface AdminBoardRow {
+  shiftTemplateId: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  cells: AdminBoardCell[]; // luôn đủ 7 phần tử, theo thứ tự dayOfWeek 1→7
+}
+
+export interface AdminBoard {
+  weekStart: string;
+  weekEnd: string;
+  rows: AdminBoardRow[];
 }
 
 @Injectable({
@@ -129,7 +149,7 @@ export class StaffService {
   }
 
   getShiftRegistrations(
-    params: { status?: string; staffId?: string } = {},
+    params: { status?: string; staffId?: string; shiftTemplateId?: string; date?: string } = {},
   ): Observable<ShiftRegistration[]> {
     return this.http.get<ShiftRegistration[]>(`${this.baseUrl}/shifts/registrations`, {
       params: params as any,
@@ -193,12 +213,22 @@ export class StaffService {
     return this.http.get<any[]>(`${this.baseUrl}/pos/session-logs`, { params });
   }
 
-  /** ── Bảng lịch làm việc (sức chứa theo Thứ × Ca mẫu) ── */
-  getScheduleSlotConfigs(): Observable<ScheduleSlotConfig[]> {
-    return this.http.get<ScheduleSlotConfig[]>(`${this.baseUrl}/schedule/slots`);
+  /** ── Bảng lịch làm việc — Nhân viên (ẩn danh) ── */
+  // weekStart PHẢI là ngày Thứ 2 (YYYY-MM-DD). staffId dùng để server trả kèm trạng thái đăng ký của riêng mình.
+  getScheduleBoard(weekStart: string, staffId?: string): Observable<ScheduleBoard> {
+    const params: any = { weekStart };
+    if (staffId) params.staffId = staffId;
+    return this.http.get<ScheduleBoard>(`${this.baseUrl}/schedule/board`, { params });
   }
 
+  /** ── Bảng lịch làm việc — Admin (đầy đủ, kèm tên) ── */
+  getAdminScheduleBoard(weekStart: string): Observable<AdminBoard> {
+    return this.http.get<AdminBoard>(`${this.baseUrl}/schedule/admin-board`, { params: { weekStart } });
+  }
+
+  // Sức chứa giờ set THEO TỪNG TUẦN cụ thể (không còn là mẫu lặp lại)
   upsertScheduleSlotConfig(data: {
+    weekStart: string;
     dayOfWeek: number;
     shiftTemplateId: string;
     capacity: number;
@@ -210,10 +240,8 @@ export class StaffService {
     return this.http.delete<any>(`${this.baseUrl}/schedule/slots/${id}`);
   }
 
-  // weekStart PHẢI là ngày Thứ 2 (YYYY-MM-DD). staffId dùng để server trả kèm trạng thái đăng ký của riêng mình.
-  getScheduleBoard(weekStart: string, staffId?: string): Observable<ScheduleBoard> {
-    const params: any = { weekStart };
-    if (staffId) params.staffId = staffId;
-    return this.http.get<ScheduleBoard>(`${this.baseUrl}/schedule/board`, { params });
+  // Sao chép toàn bộ cấu hình sức chứa từ 1 tuần sang tuần khác (VD: tuần trước → tuần này)
+  copyScheduleWeek(fromWeekStart: string, toWeekStart: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/schedule/copy-week`, { fromWeekStart, toWeekStart });
   }
 }

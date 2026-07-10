@@ -4,31 +4,51 @@ const ShiftTemplate = require("../models/ShiftTemplate");
 
 /**
  * ═══════════════════════════════════════════════════
- * ⚙️ ADMIN — CẤU HÌNH SỨC CHỨA (dayOfWeek × ShiftTemplate)
+ * Helper ngày tháng — TOÀN BỘ dùng UTC, KHÔNG dùng giờ địa phương (local time).
+ * Lý do: "YYYY-MM-DD" gửi từ client luôn được JS parse thành UTC-midnight.
+ * Nếu server chạy ở múi giờ khác UTC mà code lại dùng getDate()/setDate()/setHours()
+ * (giờ địa phương), ngày tính ra có thể bị lệch 1 ngày tuỳ theo server đặt ở múi giờ nào.
+ * Dùng thuần UTC thì kết quả luôn khớp với ngày client gửi lên, bất kể server ở múi giờ nào.
+ * ═══════════════════════════════════════════════════
+ */
+function addDaysUTC(date, days) {
+  const d = new Date(date);
+  return new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + days),
+  );
+}
+
+function toDateOnlyStr(date) {
+  const d = new Date(date);
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${mm}-${dd}`;
+}
+
+// Từ 1 ngày bất kỳ (chuỗi "YYYY-MM-DD"), trả về ngày Thứ 2 của tuần chứa ngày đó (dạng Date, UTC-midnight)
+function getMondayOfDate(dateStr) {
+  const d = new Date(dateStr);
+  const utcDay = d.getUTCDay(); // 0 = CN ... 6 = T7
+  const diff = utcDay === 0 ? -6 : 1 - utcDay;
+  return addDaysUTC(d, diff);
+}
+
+/**
+ * ═══════════════════════════════════════════════════
+ * ⚙️ ADMIN — CẤU HÌNH SỨC CHỨA (theo TỪNG TUẦN cụ thể)
  * ═══════════════════════════════════════════════════
  */
 
-// GET /api/schedule/slots — toàn bộ cấu hình sức chứa đã set
-exports.getSlotConfigs = async (req, res) => {
-  try {
-    const slots = await ScheduleSlot.find().populate(
-      "shiftTemplateId",
-      "name startTime endTime isActive",
-    );
-    res.json(slots);
-  } catch (error) {
-    res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
-  }
-};
-
-// POST /api/schedule/slots — set/sửa sức chứa cho 1 ô (dayOfWeek + shiftTemplateId)
+// POST /api/schedule/slots — set/sửa sức chứa cho 1 ô (weekStart + dayOfWeek + shiftTemplateId)
 exports.upsertSlotConfig = async (req, res) => {
   try {
-    const { dayOfWeek, shiftTemplateId, capacity } = req.body;
-    if (!dayOfWeek || !shiftTemplateId || !capacity) {
+    const { weekStart, dayOfWeek, shiftTemplateId, capacity } = req.body;
+    if (!weekStart || !dayOfWeek || !shiftTemplateId || !capacity) {
       return res
         .status(400)
-        .json({ message: "Thiếu dayOfWeek, shiftTemplateId hoặc capacity." });
+        .json({
+          message: "Thiếu weekStart, dayOfWeek, shiftTemplateId hoặc capacity.",
+        });
     }
     if (dayOfWeek < 1 || dayOfWeek > 7) {
       return res
@@ -36,9 +56,15 @@ exports.upsertSlotConfig = async (req, res) => {
         .json({ message: "dayOfWeek phải từ 1 (Thứ 2) đến 7 (Chủ nhật)." });
     }
 
+    const weekStartDate = new Date(weekStart);
     const slot = await ScheduleSlot.findOneAndUpdate(
-      { dayOfWeek, shiftTemplateId },
-      { dayOfWeek, shiftTemplateId, capacity: Number(capacity) },
+      { weekStart: weekStartDate, dayOfWeek, shiftTemplateId },
+      {
+        weekStart: weekStartDate,
+        dayOfWeek,
+        shiftTemplateId,
+        capacity: Number(capacity),
+      },
       { upsert: true, new: true },
     ).populate("shiftTemplateId", "name startTime endTime isActive");
 
@@ -61,30 +87,64 @@ exports.deleteSlotConfig = async (req, res) => {
   }
 };
 
+// POST /api/schedule/copy-week — sao chép toàn bộ cấu hình sức chứa từ 1 tuần sang tuần khác
+// body: { fromWeekStart: "YYYY-MM-DD", toWeekStart: "YYYY-MM-DD" }
+exports.copyWeek = async (req, res) => {
+  try {
+    const { fromWeekStart, toWeekStart } = req.body;
+    if (!fromWeekStart || !toWeekStart) {
+      return res
+        .status(400)
+        .json({ message: "Thiếu fromWeekStart hoặc toWeekStart." });
+    }
+
+    const fromDate = new Date(fromWeekStart);
+    const toDate = new Date(toWeekStart);
+
+    const sourceSlots = await ScheduleSlot.find({ weekStart: fromDate });
+    if (sourceSlots.length === 0) {
+      return res
+        .status(400)
+        .json({
+          message: "Tuần trước chưa có cấu hình sức chứa nào để sao chép.",
+        });
+    }
+
+    let copiedCount = 0;
+    for (const slot of sourceSlots) {
+      await ScheduleSlot.findOneAndUpdate(
+        {
+          weekStart: toDate,
+          dayOfWeek: slot.dayOfWeek,
+          shiftTemplateId: slot.shiftTemplateId,
+        },
+        {
+          weekStart: toDate,
+          dayOfWeek: slot.dayOfWeek,
+          shiftTemplateId: slot.shiftTemplateId,
+          capacity: slot.capacity,
+        },
+        { upsert: true },
+      );
+      copiedCount += 1;
+    }
+
+    res.json({
+      message: `Đã sao chép ${copiedCount} ô cấu hình sang tuần này.`,
+      count: copiedCount,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
+  }
+};
+
 /**
  * ═══════════════════════════════════════════════════
- * 📅 BẢNG LỊCH LÀM VIỆC THEO TUẦN (dùng chung Admin xem trước + Nhân viên đăng ký)
+ * 📅 BẢNG LỊCH — NHÂN VIÊN (ẩn danh tính người đăng ký khác)
  * ═══════════════════════════════════════════════════
  */
 
-// Cộng thêm N ngày vào 1 mốc ngày, giữ nguyên giờ 00:00 local
-function addDays(date, days) {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
-}
-
-function toDateOnlyStr(date) {
-  const d = new Date(date);
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${mm}-${dd}`;
-}
-
 // GET /api/schedule/board?weekStart=YYYY-MM-DD&staffId=...
-// weekStart PHẢI là ngày Thứ 2 của tuần muốn xem (frontend tự tính trước khi gọi)
-// Không trả về danh sách tên nhân viên đã đăng ký — chỉ trả số lượng đã đăng ký/sức chứa
-// và trạng thái đăng ký CỦA RIÊNG staffId đang gọi API (nếu có truyền)
 exports.getBoard = async (req, res) => {
   try {
     const { weekStart, staffId } = req.query;
@@ -95,14 +155,13 @@ exports.getBoard = async (req, res) => {
     }
 
     const monday = new Date(weekStart);
-    const sunday = addDays(monday, 6);
+    const sunday = addDaysUTC(monday, 6);
 
-    const slotConfigs = await ScheduleSlot.find().populate(
+    const slotConfigs = await ScheduleSlot.find({ weekStart: monday }).populate(
       "shiftTemplateId",
       "name startTime endTime isActive",
     );
 
-    // Lấy toàn bộ đăng ký (khác "rejected") trong tuần này để đếm số lượng theo (ngày, ca)
     const registrations = await ShiftRegistration.find({
       date: { $gte: monday, $lte: sunday },
       status: { $ne: "rejected" },
@@ -111,7 +170,7 @@ exports.getBoard = async (req, res) => {
     const cells = slotConfigs
       .filter((slot) => slot.shiftTemplateId && slot.shiftTemplateId.isActive)
       .map((slot) => {
-        const cellDate = addDays(monday, slot.dayOfWeek - 1);
+        const cellDate = addDaysUTC(monday, slot.dayOfWeek - 1);
         const cellDateStr = toDateOnlyStr(cellDate);
 
         const regsForCell = registrations.filter(
@@ -135,7 +194,7 @@ exports.getBoard = async (req, res) => {
           capacity: slot.capacity,
           registeredCount,
           isFull: registeredCount >= slot.capacity,
-          myStatus: myReg ? myReg.status : null, // "pending" | "approved" | null
+          myStatus: myReg ? myReg.status : null,
           myRegistrationId: myReg ? myReg._id : null,
         };
       });
@@ -149,3 +208,83 @@ exports.getBoard = async (req, res) => {
     res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
   }
 };
+
+/**
+ * ═══════════════════════════════════════════════════
+ * 🛠️ BẢNG LỊCH — ADMIN (đầy đủ: mọi ô Ca × Thứ dù chưa mở, kèm tên nhân viên đã duyệt)
+ * ═══════════════════════════════════════════════════
+ */
+
+// GET /api/schedule/admin-board?weekStart=YYYY-MM-DD
+exports.getAdminBoard = async (req, res) => {
+  try {
+    const { weekStart } = req.query;
+    if (!weekStart) {
+      return res
+        .status(400)
+        .json({ message: "Thiếu weekStart (ngày Thứ 2 của tuần)." });
+    }
+
+    const monday = new Date(weekStart);
+    const sunday = addDaysUTC(monday, 6);
+
+    const templates = await ShiftTemplate.find({ isActive: true }).sort({
+      startTime: 1,
+    });
+    const slotConfigs = await ScheduleSlot.find({ weekStart: monday });
+    const registrations = await ShiftRegistration.find({
+      date: { $gte: monday, $lte: sunday },
+      status: { $ne: "rejected" },
+    }).populate("staffId", "name");
+
+    const rows = templates.map((tpl) => {
+      const cells = [];
+      for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek += 1) {
+        const cellDate = addDaysUTC(monday, dayOfWeek - 1);
+        const cellDateStr = toDateOnlyStr(cellDate);
+
+        const config = slotConfigs.find(
+          (s) =>
+            s.dayOfWeek === dayOfWeek &&
+            String(s.shiftTemplateId) === String(tpl._id),
+        );
+
+        const regsForCell = registrations.filter(
+          (r) =>
+            toDateOnlyStr(r.date) === cellDateStr &&
+            String(r.shiftTemplateId) === String(tpl._id),
+        );
+        const approved = regsForCell.filter((r) => r.status === "approved");
+        const pending = regsForCell.filter((r) => r.status === "pending");
+
+        cells.push({
+          date: cellDateStr,
+          dayOfWeek,
+          capacity: config ? config.capacity : 0,
+          configId: config ? config._id : null,
+          registeredCount: regsForCell.length,
+          pendingCount: pending.length,
+          approvedCount: approved.length,
+          approvedNames: approved.map((r) => r.staffId?.name).filter(Boolean),
+        });
+      }
+      return {
+        shiftTemplateId: tpl._id,
+        name: tpl.name,
+        startTime: tpl.startTime,
+        endTime: tpl.endTime,
+        cells,
+      };
+    });
+
+    res.json({
+      weekStart: toDateOnlyStr(monday),
+      weekEnd: toDateOnlyStr(sunday),
+      rows,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
+  }
+};
+
+module.exports.getMondayOfDate = getMondayOfDate;
