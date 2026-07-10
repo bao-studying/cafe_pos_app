@@ -133,8 +133,10 @@
     <div class="card">
       <p class="schedule-hint">
         Nhập số lượng nhân viên tối đa được đăng ký cho từng ô (Thứ × Ca). Để trống hoặc nhập 0 nghĩa là ô đó chưa mở đăng ký.
+        <br />Các ca đang được <strong>tắt</strong> ở tab "Ca mẫu" sẽ hiển thị mờ dưới đây.
       </p>
-      @if (shiftTemplates.length === 0) {
+
+      @if (scheduleGridRows.length === 0) {
         <div class="empty-state">Chưa có ca mẫu nào. Hãy thêm ca mẫu ở tab "Ca mẫu" trước.</div>
       } @else {
         <div class="schedule-grid-wrapper">
@@ -148,17 +150,19 @@
               </tr>
             </thead>
             <tbody>
-              @for (tpl of shiftTemplates; track trackById($index, tpl)) {
-                <tr>
-                  <td class="sticky-col cell-name">{{ tpl.name }}<br /><small>{{ tpl.startTime }}-{{ tpl.endTime }}</small></td>
-                  @for (day of weekDays; track day.value) {
+              @for (row of scheduleGridRows; track row.templateId) {
+                <tr [class.inactive-row]="!row.isActive">
+                  <td class="sticky-col cell-name">
+                    {{ row.name }}<br /><small>{{ row.startTime }}-{{ row.endTime }}</small>
+                  </td>
+                  @for (cell of row.cells; track cell.dayOfWeek) {
                     <td>
                       <input
                         type="number"
                         min="0"
                         class="capacity-input"
-                        [(ngModel)]="capacityMap[cellKey(tpl._id, day.value)]"
-                        (change)="saveCapacity(tpl._id, day.value)"
+                        [(ngModel)]="cell.capacity"
+                        (change)="saveCapacity(row.templateId, cell)"
                         placeholder="0"
                       />
                     </td>

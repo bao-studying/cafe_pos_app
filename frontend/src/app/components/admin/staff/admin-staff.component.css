@@ -551,3 +551,56 @@
     transform: translateX(0);
   }
 }
+.schedule-grid-wrapper {
+  overflow-x: auto;
+  border-radius: 12px;
+}
+.schedule-grid {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 640px;
+}
+.schedule-grid th,
+.schedule-grid td {
+  border: 1px solid #e2e8f0;
+  padding: 8px;
+  text-align: center;
+  font-size: 12.5px;
+}
+.schedule-grid thead th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.schedule-grid tbody tr:nth-child(even) td:not(.sticky-col) {
+  background: #fafbfc;
+}
+.schedule-grid tbody tr.inactive-row {
+  opacity: 0.5;
+}
+.sticky-col {
+  text-align: left !important;
+  background: #fff;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  box-shadow: 2px 0 4px -2px rgba(15, 23, 42, 0.08);
+}
+.sticky-col small {
+  font-weight: 400;
+  color: #94a3b8;
+}
+.capacity-input {
+  width: 52px;
+  text-align: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 5px 4px;
+  font-size: 13px;
+}

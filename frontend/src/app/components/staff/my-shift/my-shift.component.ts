@@ -17,6 +17,9 @@ import {
 import { SocketService } from '../../../services/socket.service';
 import { AuthService } from '../../../services/auth.service';
 
+// Định nghĩa kiểu dữ liệu cho các Tab điều hướng
+type MyShiftTab = 'attendance' | 'board' | 'history';
+
 const WEEK_DAYS = [
   { value: 1, label: 'Thứ 2' },
   { value: 2, label: 'Thứ 3' },
@@ -46,6 +49,9 @@ interface ScheduleRow {
 export class MyShiftComponent implements OnInit, OnDestroy {
   private subs: Subscription[] = [];
   staffId = '';
+
+  // Quản lý trạng thái tab hiện tại
+  topTab: MyShiftTab = 'attendance';
 
   myRegistrations: ShiftRegistration[] = [];
   myAttendance: AttendanceRecord[] = [];
@@ -78,6 +84,13 @@ export class MyShiftComponent implements OnInit, OnDestroy {
     const user = this.authService.getUser();
     this.staffId = user?.id || '';
 
+    // ĐÃ THÊM: cảnh báo sớm nếu vì lý do gì đó không lấy được staffId (VD: chưa đăng nhập,
+    // hoặc endpoint login đang dùng không trả field "id") — trước đây lỗi này âm thầm khiến
+    // toàn bộ bảng lịch không tải được mà không có bất kỳ thông báo nào.
+    if (!this.staffId) {
+      console.error('[MyShiftComponent] Không lấy được staffId từ AuthService.getUser():', user);
+    }
+
     this.loadBoard();
     this.loadMyRegistrations();
     this.loadMyAttendance();
@@ -92,7 +105,7 @@ export class MyShiftComponent implements OnInit, OnDestroy {
     this.subs.push(
       this.socketService.on('shift:registration-updated').subscribe((reg: any) => {
         this.loadBoard();
-        const staffIdOfReg = typeof reg.staffId === 'string' ? reg.staffId : reg.staffId?._id;
+        const staffIdOfReg = typeof reg?.staffId === 'string' ? reg.staffId : reg?.staffId?._id;
         if (staffIdOfReg === this.staffId) {
           this.loadMyRegistrations();
         }
@@ -102,6 +115,12 @@ export class MyShiftComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subs.forEach((s) => s.unsubscribe());
+  }
+
+  /** Hàm xử lý chuyển đổi giữa các Tab */
+  switchTopTab(tab: MyShiftTab) {
+    this.topTab = tab;
+    this.cdr.markForCheck();
   }
 
   /** ── Tính ngày Thứ 2 của tuần theo weekOffset ── */
@@ -139,7 +158,8 @@ export class MyShiftComponent implements OnInit, OnDestroy {
         this.isBoardLoading = false;
         this.cdr.markForCheck();
       },
-      error: () => {
+      error: (err) => {
+        console.error('[MyShiftComponent] Lỗi tải bảng lịch làm việc:', err);
         this.isBoardLoading = false;
         this.cdr.markForCheck();
       },
@@ -192,8 +212,34 @@ export class MyShiftComponent implements OnInit, OnDestroy {
     return this.cellState(cell) === 'open';
   }
 
+  // ĐÃ SỬA: trước đây nút bị gắn [disabled] khi không "open", khiến trình duyệt chặn hẳn
+  // sự kiện click — bấm vào không có bất kỳ phản hồi nào, rất khó biết vì sao.
+  // Giờ bấm ô nào cũng có phản hồi: mở popup nếu đăng ký được, hoặc báo rõ lý do nếu không.
   openConfirm(cell: ScheduleBoardCell | undefined) {
-    if (!cell || !this.isCellClickable(cell)) return;
+    if (!cell) {
+      alert('Admin chưa mở đăng ký cho ô này.');
+      return;
+    }
+
+    const state = this.cellState(cell);
+
+    if (state === 'mine-pending') {
+      alert('Bạn đã đăng ký ca này rồi, đang chờ admin duyệt.');
+      return;
+    }
+    if (state === 'mine-approved') {
+      alert('Ca này đã được admin duyệt cho bạn rồi.');
+      return;
+    }
+    if (state === 'past') {
+      alert('Ca này đã qua ngày, không thể đăng ký nữa.');
+      return;
+    }
+    if (state === 'full') {
+      alert('Ô ca này đã đủ số lượng đăng ký, vui lòng chọn ô khác.');
+      return;
+    }
+
     this.selectedCell = cell;
     this.isConfirmOpen = true;
     this.cdr.markForCheck();
@@ -206,7 +252,11 @@ export class MyShiftComponent implements OnInit, OnDestroy {
   }
 
   confirmRegister() {
-    if (!this.selectedCell || !this.staffId) return;
+    if (!this.selectedCell) return;
+    if (!this.staffId) {
+      alert('Không xác định được tài khoản nhân viên, vui lòng đăng nhập lại.');
+      return;
+    }
     this.isSubmitting = true;
     this.staffService
       .registerShift({
@@ -223,7 +273,10 @@ export class MyShiftComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           this.isSubmitting = false;
-          alert(err.error?.message || 'Lỗi gửi đăng ký ca!');
+          console.error('[MyShiftComponent] Lỗi đăng ký ca:', err);
+          alert(
+            err?.error?.message || `Lỗi gửi đăng ký ca! (mã lỗi: ${err?.status ?? 'không rõ'})`,
+          );
           this.closeConfirm();
           this.loadBoard(); // ô có thể vừa bị người khác đăng ký đủ SL, load lại cho chính xác
         },
@@ -236,7 +289,7 @@ export class MyShiftComponent implements OnInit, OnDestroy {
     if (!this.staffId) return;
     this.staffService.getShiftRegistrations({ staffId: this.staffId }).subscribe({
       next: (data) => {
-        this.myRegistrations = data;
+        this.myRegistrations = Array.isArray(data) ? data : [];
         this.cdr.markForCheck();
       },
     });
@@ -256,8 +309,8 @@ export class MyShiftComponent implements OnInit, OnDestroy {
       .getAttendance({ staffId: this.staffId, month: now.getMonth() + 1, year: now.getFullYear() })
       .subscribe({
         next: (data) => {
-          this.myAttendance = data;
-          this.isCheckedIn = data.some((a) => a.status === 'checked-in');
+          this.myAttendance = Array.isArray(data) ? data : [];
+          this.isCheckedIn = this.myAttendance.some((a) => a.status === 'checked-in');
           this.cdr.markForCheck();
         },
       });
@@ -300,7 +353,7 @@ export class MyShiftComponent implements OnInit, OnDestroy {
     if (!this.staffId) return;
     this.staffService.getPayrollEstimate(this.staffId).subscribe({
       next: (data) => {
-        this.payrollEstimate = data;
+        this.payrollEstimate = data ?? null;
         this.cdr.markForCheck();
       },
       error: () => {},

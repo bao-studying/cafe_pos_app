@@ -63,7 +63,7 @@
 
       <div class="dropdown-divider"></div>
 
-      <button
+    <button
         *ngIf="currentUser?.role === 'admin'"
         class="dropdown-item"
         (click)="router.navigate(['/admin']); isUserMenuOpen = false"
@@ -74,6 +74,19 @@
         </svg>
         Trang quản trị
       </button>
+
+      <button
+        *ngIf="currentUser?.role === 'staff'"
+        class="dropdown-item"
+        (click)="router.navigate(['/my-shift']); isUserMenuOpen = false"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        Ca làm của tôi
+      </button>
+
+      <div class="dropdown-divider"></div>
 
       <div class="dropdown-divider"></div>
 

@@ -120,3 +120,74 @@ exports.createOrder = async (req, res) => {
     res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
   }
 };
+
+// GET /api/orders?status=&orderType=&startDate=&endDate=&search=
+// Danh sách đơn hàng cho màn Quản lý đơn hàng (admin), mới nhất lên trước
+exports.getOrders = async (req, res) => {
+  try {
+    const { status, orderType, startDate, endDate, search } = req.query;
+    const filter = {};
+
+    if (status && status !== "all") filter.status = status;
+    if (orderType && orderType !== "all") filter.orderType = orderType;
+
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(`${startDate}T00:00:00`);
+      if (endDate) filter.createdAt.$lte = new Date(`${endDate}T23:59:59`);
+    }
+
+    if (search && search.trim()) {
+      const term = search.trim();
+      filter.$or = [
+        { paymentCode: { $regex: term, $options: "i" } },
+        { tableNumber: { $regex: term, $options: "i" } },
+      ];
+    }
+
+    const orders = await Order.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .populate("user", "name");
+
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
+  }
+};
+
+// GET /api/orders/:id — chi tiết 1 đơn
+exports.getOrderById = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).populate("user", "name");
+    if (!order) {
+      return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
+    }
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
+  }
+};
+
+// PATCH /api/orders/:id/status — đổi trạng thái đơn (pending/confirmed/cancelled)
+exports.updateOrderStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!["pending", "confirmed", "cancelled"].includes(status)) {
+      return res.status(400).json({ message: "Trạng thái không hợp lệ." });
+    }
+
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true },
+    );
+    if (!order) {
+      return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
+    }
+
+    res.json({ message: "Đã cập nhật trạng thái đơn hàng.", order });
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
+  }
+};

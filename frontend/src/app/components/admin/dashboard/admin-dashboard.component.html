@@ -1,0 +1,90 @@
+<div class="admin-dashboard-wrapper">
+  <div class="admin-main-container">
+    <header class="dashboard-header-premium">
+      <div class="header-text-titles">
+        <h2>Dashboard Doanh Thu</h2>
+        <p class="subtitle">Tổng quan hoạt động kinh doanh QL_CF</p>
+      </div>
+
+      <div class="range-presets">
+        <button [class.active]="rangePreset === 'today'" (click)="setPreset('today')">Hôm nay</button>
+        <button [class.active]="rangePreset === '7d'" (click)="setPreset('7d')">7 ngày</button>
+        <button [class.active]="rangePreset === '30d'" (click)="setPreset('30d')">30 ngày</button>
+        <div class="custom-range" [class.active]="rangePreset === 'custom'">
+          <input type="date" [(ngModel)]="startDate" (change)="onCustomDateChange()" />
+          <span>→</span>
+          <input type="date" [(ngModel)]="endDate" (change)="onCustomDateChange()" />
+        </div>
+      </div>
+    </header>
+
+    <!-- Trạng thái lỗi -->
+    <div class="error-banner" *ngIf="loadError">⚠️ {{ loadError }}</div>
+
+    <!-- Skeleton loading -->
+    <div class="stats-row" *ngIf="isLoading">
+      <div class="stat-card skeleton" *ngFor="let s of [1, 2, 3]">
+        <div class="skeleton-line short"></div>
+        <div class="skeleton-line long"></div>
+      </div>
+    </div>
+    <div class="chart-card skeleton" *ngIf="isLoading">
+      <div class="skeleton-line short"></div>
+      <div class="skeleton-chart"></div>
+    </div>
+
+    <!-- Nội dung thật -->
+    <ng-container *ngIf="!isLoading && !loadError">
+      <div class="stats-row">
+        <div class="stat-card">
+          <p class="stat-label">💰 Tổng doanh thu</p>
+          <p class="stat-value">{{ displayRevenue | number }}đ</p>
+          <p
+            class="stat-change"
+            *ngIf="revenueChangePercent !== null"
+            [class.up]="revenueChangePercent >= 0"
+            [class.down]="revenueChangePercent < 0"
+          >
+            {{ revenueChangePercent >= 0 ? '▲' : '▼' }} {{ revenueChangePercent | number: '1.0-0' }}% so với kỳ trước
+          </p>
+        </div>
+
+        <div class="stat-card">
+          <p class="stat-label">🧾 Tổng số đơn</p>
+          <p class="stat-value">{{ displayOrders | number }}</p>
+          <p
+            class="stat-change"
+            *ngIf="ordersChangePercent !== null"
+            [class.up]="ordersChangePercent >= 0"
+            [class.down]="ordersChangePercent < 0"
+          >
+            {{ ordersChangePercent >= 0 ? '▲' : '▼' }} {{ ordersChangePercent | number: '1.0-0' }}% so với kỳ trước
+          </p>
+        </div>
+
+        <div class="stat-card">
+          <p class="stat-label">📊 Trung bình / đơn</p>
+          <p class="stat-value">{{ displayAvgOrder | number }}đ</p>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <p class="chart-title">Doanh thu theo ngày</p>
+
+        <div class="bar-chart" *ngIf="report && report.details.length > 0">
+          <div class="bar-col" *ngFor="let day of report.details">
+            <span class="bar-value">{{ day.dailyRevenue | number }}đ</span>
+            <div class="bar-track">
+              <div class="bar-fill" [style.height.%]="barHeightPercent(day)"></div>
+            </div>
+            <span class="bar-label">{{ formatDayLabel(day._id) }}</span>
+          </div>
+        </div>
+
+        <div class="chart-empty" *ngIf="!report || report.details.length === 0">
+          <p>☕ Chưa có đơn hàng nào trong khoảng thời gian này.</p>
+        </div>
+      </div>
+    </ng-container>
+  </div>
+</div>

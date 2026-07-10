@@ -1,0 +1,214 @@
+<div class="admin-dashboard-wrapper">
+  <div class="admin-main-container">
+    <!-- HEADER ĐỈNH CAO -->
+    <header class="dashboard-header-premium">
+      <div class="header-text-titles">
+        <h2>Quản lý đơn hàng</h2>
+        <div class="orders-summary-badges">
+          <span class="summary-chip">🔥 Đang lọc: {{ filteredCount }} đơn</span>
+          <span class="summary-chip revenue"
+            >💰 Doanh thu hiển thị: {{ totalRevenueShown | number }}đ</span
+          >
+        </div>
+      </div>
+    </header>
+
+    <!-- THANH BỘ LỌC TINH GỌN -->
+    <section class="filter-bar">
+      <div class="filter-group">
+        <select [(ngModel)]="filterStatus" (change)="loadOrders()">
+          <option value="all">🎯 Tất cả trạng thái</option>
+          <option value="pending">⏳ Chờ xử lý</option>
+          <option value="confirmed">✅ Đã xác nhận</option>
+          <option value="cancelled">❌ Đã huỷ</option>
+        </select>
+
+        <select [(ngModel)]="filterOrderType" (change)="loadOrders()">
+          <option value="all">🏪 Toàn bộ hình thức</option>
+          <option value="Dine-in">🪑 Tại bàn</option>
+          <option value="Takeaway">🥤 Mang về</option>
+        </select>
+      </div>
+
+      <div class="filter-group-date">
+        <input type="date" [(ngModel)]="filterStartDate" (change)="loadOrders()" />
+        <span class="range-arrow">→</span>
+        <input type="date" [(ngModel)]="filterEndDate" (change)="loadOrders()" />
+      </div>
+
+      <div class="filter-group-search">
+        <input
+          type="text"
+          class="search-input"
+          placeholder="Tìm mã đơn, số bàn..."
+          [(ngModel)]="searchTerm"
+          (keyup.enter)="loadOrders()"
+        />
+        <button class="btn-search" (click)="loadOrders()">🔍 Tìm</button>
+        <button class="btn-reset" (click)="resetFilters()">↺ Xoá</button>
+      </div>
+    </section>
+
+    <div class="error-banner" *ngIf="loadError">⚠️ {{ loadError }}</div>
+
+    <!-- SKELETON LOADING -->
+    <div class="split-layout-container" *ngIf="isLoading">
+      <div class="master-sidebar-panel">
+        <div class="skeleton-order-card" *ngFor="let s of [1, 2, 3, 4]"></div>
+      </div>
+      <div class="detail-content-panel skeleton-detail"></div>
+    </div>
+
+    <!-- BỐ CỤC HAI CỘT ĐỘT PHÁ (SPLIT-SCREEN LAYOUT) -->
+    <div class="split-layout-container" *ngIf="!isLoading && !loadError">
+      <!-- CỘT TRÁI: DANH SÁCH ĐƠN THU GỌN (Có vùng cuộn riêng) -->
+      <aside class="master-sidebar-panel">
+        <div class="sidebar-scroll-area" *ngIf="orders.length > 0">
+          <div
+            *ngFor="let order of orders"
+            class="compact-order-card"
+            [class.active-card]="selectedOrder?._id === order._id"
+            (click)="openDetail(order)"
+          >
+            <div class="card-row-top">
+              <span class="mono-code">{{ order.paymentCode }}</span>
+              <span class="status-dot-badge" [class]="order.status">{{
+                statusLabel(order.status)
+              }}</span>
+            </div>
+
+            <div class="card-row-middle">
+              <span class="type-indicator">
+                {{
+                  order.orderType === 'Takeaway'
+                    ? '🥤 Mang về'
+                    : '🪑 Bàn ' + (order.tableNumber || '—')
+                }}
+              </span>
+              <span class="time-indicator">{{ order.createdAt | date: 'HH:mm' }}</span>
+            </div>
+
+            <div class="card-row-bottom">
+              <span class="staff-name">👤 {{ orderUserName(order) }}</span>
+              <span class="price-tag">{{ order.totalAmount | number }}đ</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="empty-sidebar-state" *ngIf="orders.length === 0">
+          ☕ Không có đơn nào phù hợp bộ lọc.
+        </div>
+      </aside>
+
+      <!-- CỘT PHẢI: CHI TIẾT ĐƠN HÀNG CỐ ĐỊNH (Không bị nhảy giao diện) -->
+      <main class="detail-content-panel">
+        <div class="detail-sticky-wrapper" *ngIf="selectedOrder">
+          <div class="detail-main-header">
+            <div>
+              <div class="badge-row">
+                <span class="type-large-badge">{{
+                  selectedOrder.orderType === 'Takeaway'
+                    ? '🥤 Đơn Mang Về'
+                    : '🪑 Đơn Tại Bàn - Bàn ' + (selectedOrder.tableNumber || '—')
+                }}</span>
+                <span class="method-large-badge">{{
+                  selectedOrder.paymentMethod === 'cash' ? '💵 Tiền mặt' : '📱 Chuyển khoản'
+                }}</span>
+              </div>
+              <h3>Mã Đơn: {{ selectedOrder.paymentCode }}</h3>
+              <p class="detail-time">
+                Thời gian tạo: {{ selectedOrder.createdAt | date: 'HH:mm · dd/MM/yyyy' }}
+              </p>
+              <span
+                >Nhân viên ghi đơn: <strong>{{ customerName }}</strong></span
+              >
+            </div>
+          </div>
+
+          <div class="detail-main-body">
+            <!-- Khu vực điều hướng trạng thái thông minh -->
+            <div class="action-status-card">
+              <h5>TIẾN ĐỘ ĐƠN HÀNG</h5>
+              <div class="status-steps-buttons">
+                <button
+                  [class.active]="selectedOrder.status === 'pending'"
+                  [disabled]="isUpdatingStatus"
+                  (click)="changeStatus(selectedOrder, 'pending')"
+                >
+                  ⏳ Chờ xử lý
+                </button>
+                <button
+                  [class.active]="selectedOrder.status === 'confirmed'"
+                  [disabled]="isUpdatingStatus"
+                  (click)="changeStatus(selectedOrder, 'confirmed')"
+                >
+                  ✅ Xác nhận đơn
+                </button>
+                <button
+                  class="btn-danger-trigger"
+                  [class.active]="selectedOrder.status === 'cancelled'"
+                  [disabled]="isUpdatingStatus"
+                  (click)="changeStatus(selectedOrder, 'cancelled')"
+                >
+                  ❌ Huỷ đơn hàng
+                </button>
+              </div>
+            </div>
+
+            <!-- List món ăn uống -->
+            <h4 class="section-divider-title">🛒 DANH SÁCH MÓN ĐÃ GỌI</h4>
+            <div class="items-bill-list">
+              <div class="bill-item-row" *ngFor="let item of selectedOrder.orderItems">
+                <div class="bill-item-left">
+                  <div class="item-title-qty">
+                    <span class="qty-bubble">{{ item.quantity }}x</span>
+                    <span class="product-name-text">{{ item.productName }}</span>
+                  </div>
+                  <div
+                    class="item-specs-chips"
+                    *ngIf="
+                      item.toppings.length > 0 || item.itemDiscountPercent > 0 || item.size !== 'M'
+                    "
+                  >
+                    <span class="spec-mini-chip" *ngIf="item.size !== 'M'"
+                      >Size {{ item.size }}</span
+                    >
+                    <span class="spec-mini-chip topping" *ngFor="let t of item.toppings"
+                      >＋{{ t.name }}</span
+                    >
+                    <span class="spec-mini-chip discount" *ngIf="item.itemDiscountPercent > 0"
+                      >−{{ item.itemDiscountPercent }}%</span
+                    >
+                  </div>
+                </div>
+                <div class="bill-item-right mono-price">{{ item.lineTotal | number }}đ</div>
+              </div>
+            </div>
+
+            <!-- Tổng kết hóa đơn -->
+            <div class="bill-summary-card">
+              <div class="summary-line" *ngIf="selectedOrder.discountAmount > 0">
+                <span>Khuyến mãi ({{ selectedOrder.discountPercent }}%)</span>
+                <span class="discount-minus">−{{ selectedOrder.discountAmount | number }}đ</span>
+              </div>
+              <div class="summary-line final-total">
+                <span>KHÁCH PHẢI TRẢ</span>
+                <span class="total-large-price">{{ selectedOrder.totalAmount | number }}đ</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trạng thái trống khi chưa chọn đơn nào -->
+        <div class="detail-empty-placeholder" *ngIf="!selectedOrder">
+          <div class="placeholder-icon">☕</div>
+          <h4>Chưa chọn đơn hàng hiển thị</h4>
+          <p>
+            Vui lòng click chọn một đơn hàng ở danh sách bên trái để xem thông tin chi tiết và xử lý
+            trạng thái.
+          </p>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
