@@ -30,7 +30,6 @@ const USERS = [
 app.post("/api/login", (req, res) => {
   const { phone, password } = req.body;
 
-  // Tìm user khớp số điện thoại và mật khẩu
   const user = USERS.find((u) => u.phone === phone && u.password === password);
 
   if (!user) {
@@ -40,7 +39,6 @@ app.post("/api/login", (req, res) => {
     });
   }
 
-  // Đăng nhập thành công -> Trả về thông tin user kèm token giả định
   return res.json({
     success: true,
     message: "Đăng nhập thành công!",
@@ -53,7 +51,9 @@ app.post("/api/login", (req, res) => {
   });
 });
 
-// Các tuyến đường API (Đã xóa bỏ các dòng trùng lặp)
+// ==========================================
+// ĐOẠN 1: TẤT CẢ CÁC TUYẾN ĐƯỜNG API (ƯU TIÊN CAO NHẤT)
+// ==========================================
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/orders", require("./routes/orderRoutes"));
 app.use("/api/products", require("./routes/productRoutes"));
@@ -69,29 +69,27 @@ app.use("/api/pos", require("./routes/posRoutes"));
 app.use("/api/schedule", require("./routes/scheduleRoutes"));
 
 // ==========================================
-// 🚀 CẤU HÌNH ĐỂ TRẢ VỀ GIAO DIỆN FRONTEND TRÊN RENDER (ĐÃ FIX LỖI EXPRESS V5)
+// ĐOẠN 2: CẤU HÌNH PHỤC VỤ ANGULAR STATIC (ĐẶT Ở CUỐI FILE)
 // ==========================================
-// 1. Phục vụ các file tĩnh (html, css, js) từ thư mục dist của Frontend sau khi build
-// LƯU Ý: app hiện dùng RenderMode.Client (không SSR/prerender) nên Angular xuất ra
-// "index.csr.html" thay vì "index.html" — chỉnh cả 2 chỗ bên dưới để khớp tên file thật.
-app.use(
-  express.static(path.join(process.cwd(), "../frontend/dist/lab1/browser"), {
-    index: "index.csr.html",
-  }),
-);
-// 2. Dùng middleware thay cho app.get('*') để tránh triệt để lỗi PathError [TypeError] của Express v5
-app.use((req, res, next) => {
-  // Nếu request không bắt đầu bằng /api thì trả về file index.csr.html của Frontend
-  if (!req.url.startsWith("/api")) {
-    return res.sendFile(
-      path.join(process.cwd(), "../frontend/dist/lab1/browser/index.csr.html"),
-    );
-  }
-  next();
+const frontendPath = path.join(process.cwd(), "../frontend/dist/lab1/browser");
+
+// Cấu hình phục vụ file tĩnh (js, css, hình ảnh) từ thư mục browser
+app.use(express.static(frontendPath, { index: "index.csr.html" }));
+
+// Bẫy lỗi 404 cho riêng các request gọi vào /api nhưng không tồn tại
+app.use("/api", (req, res) => {
+  res
+    .status(404)
+    .json({ success: false, message: `API không tồn tại: ${req.originalUrl}` });
+});
+
+// Tất cả các request KHÔNG PHẢI /api thì đều ném về file index.csr.html của Angular
+app.use((req, res) => {
+  res.sendFile(path.join(frontendPath, "index.csr.html"));
 });
 
 // ==========================================
-// KẾT NỐI SERVER VÀ SOCKET.IO (Chỉ khai báo DUY NHẤT một lần)
+// ĐOẠN 3: KẾT NỐI SERVER VÀ SOCKET.IO
 // ==========================================
 const httpServer = http.createServer(app);
 initSocket(httpServer);
