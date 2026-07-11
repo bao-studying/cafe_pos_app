@@ -50,23 +50,25 @@ app.post("/api/login", (req, res) => {
     },
   });
 });
-
+app.get("/api/orders/test", (req, res) => {
+  res.json({ success: true, message: "Route Orders đang hoạt động!" });
+});
 // ==========================================
-// ĐOẠN 1: TẤT CẢ CÁC TUYẾN ĐƯỜNG API (ƯU TIÊN CAO NHẤT)
+// ĐOẠN 1: SỬA LẠI ĐƯỜNG DẪN TUYỆT ĐỐI CHO ROUTE (FIX LỖI 404 TRÊN RENDER)
 // ==========================================
-app.use("/api/auth", require("./routes/authRoutes"));
-app.use("/api/orders", require("./routes/orderRoutes"));
-app.use("/api/products", require("./routes/productRoutes"));
-app.use("/api/admin", require("./routes/adminRoutes"));
-app.use("/api/users", require("./routes/userRoutes"));
-app.use("/api/payment", require("./routes/paymentRoutes"));
-app.use("/api/stock", require("./routes/stockRoutes"));
-app.use("/api/tables", require("./routes/tableRoutes"));
-app.use("/api/shifts", require("./routes/shiftRoutes"));
-app.use("/api/attendance", require("./routes/attendanceRoutes"));
-app.use("/api/payroll", require("./routes/payrollRoutes"));
-app.use("/api/pos", require("./routes/posRoutes"));
-app.use("/api/schedule", require("./routes/scheduleRoutes"));
+app.use("/api/auth", require(path.join(__dirname, "routes/authRoutes")));
+app.use("/api/orders", require(path.join(__dirname, "routes/orderRoutes")));
+app.use("/api/products", require(path.join(__dirname, "routes/productRoutes")));
+app.use("/api/admin", require(path.join(__dirname, "routes/adminRoutes")));
+app.use("/api/users", require(path.join(__dirname, "routes/userRoutes")));
+app.use("/api/payment", require(path.join(__dirname, "routes/paymentRoutes")));
+app.use("/api/stock", require(path.join(__dirname, "routes/stockRoutes")));
+app.use("/api/tables", require(path.join(__dirname, "routes/tableRoutes")));
+app.use("/api/shifts", require(path.join(__dirname, "routes/shiftRoutes")));
+app.use("/api/attendance", require(path.join(__dirname, "routes/attendanceRoutes")));
+app.use("/api/payroll", require(path.join(__dirname, "routes/payrollRoutes")));
+app.use("/api/pos", require(path.join(__dirname, "routes/posRoutes")));
+app.use("/api/schedule", require(path.join(__dirname, "routes/scheduleRoutes")));
 
 // ==========================================
 // ĐOẠN 2: CẤU HÌNH PHỤC VỤ ANGULAR STATIC (ĐẶT Ở CUỐI FILE)
