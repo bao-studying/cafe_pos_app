@@ -1,4 +1,5 @@
 const Attendance = require("../models/Attendance");
+const User = require("../models/User");
 const { getIO } = require("../socket");
 
 // POST /api/attendance/check-in
@@ -7,6 +8,17 @@ exports.checkIn = async (req, res) => {
     const { staffId, shiftRegistrationId } = req.body;
     if (!staffId) {
       return res.status(400).json({ message: "Thiếu staffId." });
+    }
+
+    // ĐÃ THÊM: kiểm tra staffId có thật trong DB không — tránh trường hợp ID cũ/rác
+    // (VD: localStorage cũ trên điện thoại còn ID từ lúc test ở database khác) ghi được
+    // Attendance với staffId "ma", khiến populate ra null và admin không bao giờ thấy online.
+    const staffExists = await User.exists({ _id: staffId });
+    if (!staffExists) {
+      return res.status(404).json({
+        message:
+          "Không tìm thấy tài khoản nhân viên này trong hệ thống. Vui lòng đăng xuất và đăng nhập lại.",
+      });
     }
 
     // Không cho check-in mới nếu đang có ca chưa check-out
@@ -46,6 +58,14 @@ exports.checkOut = async (req, res) => {
     const { staffId } = req.body;
     if (!staffId) {
       return res.status(400).json({ message: "Thiếu staffId." });
+    }
+
+    const staffExists = await User.exists({ _id: staffId });
+    if (!staffExists) {
+      return res.status(404).json({
+        message:
+          "Không tìm thấy tài khoản nhân viên này trong hệ thống. Vui lòng đăng xuất và đăng nhập lại.",
+      });
     }
 
     const attendance = await Attendance.findOne({
