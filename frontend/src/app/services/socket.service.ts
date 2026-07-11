@@ -9,9 +9,9 @@ import { environment } from '../../environments/environment';
 export class SocketService implements OnDestroy {
   private socket: Socket | null = null;
   // Production: apiBaseUrl rỗng (cùng domain) -> dùng luôn origin hiện tại của trình duyệt
-  private readonly url = environment.apiBaseUrl || window.location.origin;
+  private readonly url =
+    environment.apiBaseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
 
-  /** Lấy (hoặc tạo mới nếu chưa có) kết nối socket dùng chung toàn app */
   private getSocket(): Socket {
     if (!this.socket) {
       this.socket = io(this.url, { transports: ['websocket'] });
@@ -19,7 +19,6 @@ export class SocketService implements OnDestroy {
     return this.socket;
   }
 
-  /** Lắng nghe 1 sự kiện, trả về Observable — nhớ unsubscribe khi component huỷ */
   on<T = any>(eventName: string): Observable<T> {
     const socket = this.getSocket();
     return new Observable<T>((subscriber) => {

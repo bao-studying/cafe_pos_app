@@ -72,16 +72,21 @@ app.use("/api/schedule", require("./routes/scheduleRoutes"));
 // 🚀 CẤU HÌNH ĐỂ TRẢ VỀ GIAO DIỆN FRONTEND TRÊN RENDER (ĐÃ FIX LỖI EXPRESS V5)
 // ==========================================
 // 1. Phục vụ các file tĩnh (html, css, js) từ thư mục dist của Frontend sau khi build
+// LƯU Ý: app hiện dùng RenderMode.Client (không SSR/prerender) nên Angular xuất ra
+// "index.csr.html" thay vì "index.html" — chỉnh cả 2 chỗ bên dưới để khớp tên file thật.
 app.use(
-  express.static(path.join(process.cwd(), "../frontend/dist/lab1/browser")),
+  express.static(path.join(process.cwd(), "../frontend/dist/lab1/browser"), {
+    index: "index.csr.html",
+  }),
 );
 // 2. Dùng middleware thay cho app.get('*') để tránh triệt để lỗi PathError [TypeError] của Express v5
 app.use((req, res, next) => {
-  // Nếu request không bắt đầu bằng /api thì trả về file index.html của Frontend
+  // Nếu request không bắt đầu bằng /api thì trả về file index.csr.html của Frontend
   if (!req.url.startsWith("/api")) {
-return res.sendFile(
-  path.join(process.cwd(), "../frontend/dist/lab1/browser/index.html"),
-);  }
+    return res.sendFile(
+      path.join(process.cwd(), "../frontend/dist/lab1/browser/index.csr.html"),
+    );
+  }
   next();
 });
 
