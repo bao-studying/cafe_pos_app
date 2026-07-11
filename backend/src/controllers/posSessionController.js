@@ -56,7 +56,7 @@ exports.getSessionLogs = async (req, res) => {
 
     const logs = await PosAccessLog.find(filter)
       .populate("staffId", "name phone")
-      .sort({ loginTime: -1 });
+      .sort({ loginTime: -1});
 
     res.json(logs);
   } catch (error) {
