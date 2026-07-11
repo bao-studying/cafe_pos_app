@@ -136,7 +136,7 @@
             </svg>
           </button>
         </div>
-        <div class="cat-tabs">
+        <div class="cat-tabs scroll-x">
           <button class="cat-tab" [class.active]="selectedCategory === ''" (click)="selectType('')">
             Tất cả
           </button>
@@ -270,6 +270,14 @@
             <span class="cart-badge" *ngIf="cartItemCount > 0">{{ cartItemCount }}</span>
           </h2>
         </div>
+        <button
+          class="btn-clear-cart"
+          *ngIf="orderItems.length > 0"
+          title="Xoá toàn bộ giỏ hàng"
+          (click)="clearCurrentCart()"
+        >
+          🗑️
+        </button>
         <div class="order-type-toggle">
           <button [class.active]="orderType === 'Dine-in'" (click)="setOrderType('Dine-in')">
             🪑 Tại bàn

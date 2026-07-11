@@ -364,6 +364,7 @@ export class PosComponent implements OnInit {
           .filter((p) => p.category !== 'Nguyên liệu');
         this.filteredProducts = [...this.allProducts];
         this.isLoading = false;
+        this.pruneStaleCartItems();
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -372,6 +373,32 @@ export class PosComponent implements OnInit {
         this.cdr.detectChanges();
       },
     });
+  }
+
+  // Giỏ hàng khôi phục từ localStorage có thể chứa sản phẩm đã bị xoá/đổi ID
+  // trong DB (VD: seed lại dữ liệu). Dọn các món không còn tồn tại để tránh lỗi
+  // "sản phẩm không tồn tại" khi thanh toán, đồng thời báo cho thu ngân biết.
+  private pruneStaleCartItems() {
+    const validIds = new Set(this.allProducts.map((p) => p.id));
+
+    const before = this.orderItems.length;
+    this.orderItems = this.orderItems.filter((item) => validIds.has(item.product.id));
+    const removedFromCurrent = before - this.orderItems.length;
+
+    let removedFromOtherTables = 0;
+    this.activeTableCarts.forEach((items, tableLabel) => {
+      const filtered = items.filter((item) => validIds.has(item.product.id));
+      removedFromOtherTables += items.length - filtered.length;
+      this.activeTableCarts.set(tableLabel, filtered);
+    });
+
+    const totalRemoved = removedFromCurrent + removedFromOtherTables;
+    if (totalRemoved > 0) {
+      this.persistCart();
+      alert(
+        `⚠️ Đã tự động xoá ${totalRemoved} món không còn tồn tại trong hệ thống khỏi giỏ hàng (dữ liệu cũ được lưu tạm trên máy). Vui lòng thêm lại món nếu cần.`,
+      );
+    }
   }
 
   private normalizeProduct(product: any): Product {
@@ -546,6 +573,14 @@ export class PosComponent implements OnInit {
 
   removeItem(item: OrderItem) {
     this.orderItems = this.orderItems.filter((i) => i.uid !== item.uid);
+    this.persistCart();
+  }
+
+  // Xoá thủ công toàn bộ giỏ hàng đang thao tác (không đụng tới các bàn khác đang lưu tạm)
+  clearCurrentCart() {
+    if (!this.orderItems.length) return;
+    if (!confirm('Xoá toàn bộ món trong giỏ hàng hiện tại?')) return;
+    this.orderItems = [];
     this.persistCart();
   }
 

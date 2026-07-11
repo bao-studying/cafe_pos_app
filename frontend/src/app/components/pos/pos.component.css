@@ -432,6 +432,18 @@
   gap: 6px;
   flex-wrap: wrap;
 }
+.cat-tabs.scroll-x {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.cat-tabs.scroll-x::-webkit-scrollbar {
+  display: none;
+}
+.cat-tabs.scroll-x .cat-tab {
+  flex-shrink: 0;
+}
 .cat-tab {
   padding: 6px 14px;
   border-radius: 20px;
@@ -797,6 +809,24 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.btn-clear-cart {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-clear-cart:hover {
+  border-color: var(--red);
+  color: var(--red);
+  background: var(--red-glow);
 }
 
 .order-type-toggle {
@@ -2269,6 +2299,74 @@
     grid-template-columns: 1fr 1fr;
     padding: 12px;
     gap: 10px;
+  }
+}
+
+/* ══════════════════════════════════════════
+   ĐIỆN THOẠI NHỎ (≤480px) — tinh chỉnh riêng
+══════════════════════════════════════════ */
+@media (max-width: 480px) {
+  .modal-backdrop {
+    padding: 10px;
+    align-items: flex-end; /* Popup trồi lên từ đáy màn hình, quen tay hơn trên mobile */
+  }
+  .modal,
+  .item-popup-modal,
+  .printer-rig {
+    max-height: 94vh;
+  }
+
+  /* Sơ đồ bàn: thu gọn chiều cao canvas + gọn phần header/legend để đỡ phải cuộn nhiều */
+  .floorplan-modal {
+    padding: 14px 14px 18px;
+    max-height: 94vh;
+  }
+  .floorplan-canvas {
+    height: 300px;
+  }
+  .floorplan-header h2 {
+    font-size: 16px;
+  }
+  .floorplan-sub {
+    font-size: 11.5px;
+  }
+  .floor-table {
+    width: 68px;
+    height: 68px;
+  }
+  .floor-table .table-icon {
+    font-size: 16px;
+  }
+  .floor-table .table-label {
+    font-size: 11px;
+  }
+
+  /* Nav: gọn tối đa, ưu tiên nút chọn bàn và logo */
+  .nav-label {
+    display: none;
+  }
+  .nav-title {
+    font-size: 15px;
+  }
+  .nav-table-value {
+    font-size: 12.5px;
+  }
+  .nav-left-group {
+    gap: 10px;
+  }
+
+  /* Giỏ hàng: nhích chiều cao 1 chút để đỡ cảm giác chật khi thao tác bằng ngón tay */
+  .cart-panel {
+    max-height: 48vh;
+  }
+
+  /* Popup chọn size/topping/thanh toán: sát viền hơn, chữ vừa mắt hơn trên màn nhỏ */
+  .popup-section {
+    padding: 10px 16px;
+  }
+  .btn-confirm-pay,
+  .btn-confirm-popup {
+    font-size: 14px;
   }
 }
 /* ══════════════════════════════════════════

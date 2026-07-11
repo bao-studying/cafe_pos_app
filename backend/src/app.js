@@ -57,6 +57,7 @@ app.get("/api/orders/test", (req, res) => {
 // ĐOẠN 1: SỬA LẠI ĐƯỜNG DẪN TUYỆT ĐỐI CHO ROUTE (FIX LỖI 404 TRÊN RENDER)
 // ==========================================
 app.use("/api/auth", require(path.join(__dirname, "routes/authRoutes")));
+
 app.use("/api/orders", require(path.join(__dirname, "routes/orderRoutes")));
 app.use("/api/products", require(path.join(__dirname, "routes/productRoutes")));
 app.use("/api/admin", require(path.join(__dirname, "routes/adminRoutes")));
