@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface StaffUser {
   _id: string;
@@ -100,7 +101,7 @@ export interface AdminBoard {
   providedIn: 'root',
 })
 export class StaffService {
-  private baseUrl = 'http://localhost:5000/api';
+  private baseUrl = `${environment.apiBaseUrl}/api`;
 
   constructor(private http: HttpClient) {}
 
@@ -223,7 +224,9 @@ export class StaffService {
 
   /** ── Bảng lịch làm việc — Admin (đầy đủ, kèm tên) ── */
   getAdminScheduleBoard(weekStart: string): Observable<AdminBoard> {
-    return this.http.get<AdminBoard>(`${this.baseUrl}/schedule/admin-board`, { params: { weekStart } });
+    return this.http.get<AdminBoard>(`${this.baseUrl}/schedule/admin-board`, {
+      params: { weekStart },
+    });
   }
 
   // Sức chứa giờ set THEO TỪNG TUẦN cụ thể (không còn là mẫu lặp lại)
@@ -242,6 +245,9 @@ export class StaffService {
 
   // Sao chép toàn bộ cấu hình sức chứa từ 1 tuần sang tuần khác (VD: tuần trước → tuần này)
   copyScheduleWeek(fromWeekStart: string, toWeekStart: string): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/schedule/copy-week`, { fromWeekStart, toWeekStart });
+    return this.http.post<any>(`${this.baseUrl}/schedule/copy-week`, {
+      fromWeekStart,
+      toWeekStart,
+    });
   }
 }

@@ -2,13 +2,14 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators'; // ✅ Fix lỗi thiếu import toán tử tap
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
-  // Đồng bộ với API Backend chạy ở port 5000 của bạn
-  private apiUrl = 'http://localhost:5000/api/auth';
+  // Dev: http://localhost:5000/api/auth — Production (Render): /api/auth (cùng domain)
+  private apiUrl = `${environment.apiBaseUrl}/api/auth`;
 
   constructor(private http: HttpClient) {}
 

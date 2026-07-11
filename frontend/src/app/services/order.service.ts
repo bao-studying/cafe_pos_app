@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
 
 export interface CreateOrderItemPayload {
   productId: string;
@@ -60,7 +61,7 @@ export interface OrderFilter {
   providedIn: 'root',
 })
 export class OrderService {
-  private apiUrl = 'http://localhost:5000/api/orders';
+  private apiUrl = `${environment.apiBaseUrl}/api/orders`;
 
   // Phát sự kiện mỗi khi có đơn được tạo/đổi trạng thái, để các trang khác
   // (VD: Dashboard doanh thu) tự động làm mới dữ liệu mà không cần F5.

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface CafeTable {
   _id: string;
@@ -15,7 +16,7 @@ export interface CafeTable {
   providedIn: 'root',
 })
 export class TableService {
-  private apiUrl = 'http://localhost:5000/api/tables';
+  private apiUrl = `${environment.apiBaseUrl}/api/tables`;
 
   constructor(private http: HttpClient) {}
 

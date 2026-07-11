@@ -1,7 +1,7 @@
 import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { StockService } from '../../admin/stock/stock.service';
+import { StockService } from '../../../services/stock.service';
 import { AuthService } from '../../../services/auth.service';
 
 interface CheckRow {
@@ -63,42 +63,42 @@ export class StaffStockCheckComponent implements OnInit {
     return base * row.conversionRate + sub;
   }
 
-submit() {
-  const currentUser = this.authService.getUser();
+  submit() {
+    const currentUser = this.authService.getUser();
 
-  const details = this.rows
-    .filter((r) => r.actualBaseQty !== null || r.actualSubQty !== null)
-    .map((r) => ({
-      ingredientId: r._id,
-      actualBaseQty: Number(r.actualBaseQty) || 0,
-      actualSubQty: Number(r.actualSubQty) || 0,
-    }));
+    const details = this.rows
+      .filter((r) => r.actualBaseQty !== null || r.actualSubQty !== null)
+      .map((r) => ({
+        ingredientId: r._id,
+        actualBaseQty: Number(r.actualBaseQty) || 0,
+        actualSubQty: Number(r.actualSubQty) || 0,
+      }));
 
-  if (details.length === 0) {
-    return alert('Vui lòng nhập số lượng kiểm kho cho ít nhất 1 nguyên liệu.');
+    if (details.length === 0) {
+      return alert('Vui lòng nhập số lượng kiểm kho cho ít nhất 1 nguyên liệu.');
+    }
+
+    this.isSubmitting = true;
+    const payload = {
+      staffId: currentUser?.id || 'unknown',
+      staffName: currentUser?.name || '',
+      note: this.note,
+      details,
+    };
+
+    this.stockService.submitStaffReport(payload).subscribe({
+      next: (res) => {
+        this.isSubmitting = false;
+        if (res.success) {
+          alert('Đã gửi báo cáo kiểm kho thành công!');
+          this.ngOnInit();
+          this.note = '';
+        }
+      },
+      error: (err) => {
+        this.isSubmitting = false;
+        alert(err.error?.message || 'Lỗi gửi báo cáo!');
+      },
+    });
   }
-
-  this.isSubmitting = true;
-  const payload = {
-    staffId: currentUser?.id || 'unknown',
-    staffName: currentUser?.name || '',
-    note: this.note,
-    details,
-  };
-
-  this.stockService.submitStaffReport(payload).subscribe({
-    next: (res) => {
-      this.isSubmitting = false;
-      if (res.success) {
-        alert('Đã gửi báo cáo kiểm kho thành công!');
-        this.ngOnInit();
-        this.note = '';
-      }
-    },
-    error: (err) => {
-      this.isSubmitting = false;
-      alert(err.error?.message || 'Lỗi gửi báo cáo!');
-    },
-  });
-}
 }

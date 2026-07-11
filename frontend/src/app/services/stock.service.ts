@@ -1,12 +1,12 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { AuthService } from '../../../services/auth.service';
+import { AuthService } from './auth.service';
+import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class StockService {
-  // Đồng bộ với AuthService — backend chạy port 5000
-  private apiUrl = 'http://localhost:5000/api/stock';
+  private apiUrl = `${environment.apiBaseUrl}/api/stock`;
 
   constructor(
     private http: HttpClient,

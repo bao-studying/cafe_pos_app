@@ -2,9 +2,8 @@ import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { StockService } from '../stock/stock.service';
+import { StockService } from '../../../services/stock.service';
 import { AuthService } from '../../../services/auth.service';
-
 
 export interface Ingredient {
   _id: string;

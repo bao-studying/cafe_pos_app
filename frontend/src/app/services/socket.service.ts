@@ -1,13 +1,15 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class SocketService implements OnDestroy {
   private socket: Socket | null = null;
-  private readonly url = 'http://localhost:5000';
+  // Production: apiBaseUrl rỗng (cùng domain) -> dùng luôn origin hiện tại của trình duyệt
+  private readonly url = environment.apiBaseUrl || window.location.origin;
 
   /** Lấy (hoặc tạo mới nếu chưa có) kết nối socket dùng chung toàn app */
   private getSocket(): Socket {
