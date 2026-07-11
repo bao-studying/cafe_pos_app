@@ -14,7 +14,17 @@ export class SocketService implements OnDestroy {
 
   private getSocket(): Socket {
     if (!this.socket) {
-      this.socket = io(this.url, { transports: ['websocket'] });
+      // ĐÃ SỬA: bỏ ép transports:['websocket'] — một số mạng di động/wifi công cộng
+      // chặn nâng cấp WebSocket trực tiếp, khiến socket không bao giờ kết nối được.
+      // Để mặc định (polling trước, tự nâng cấp lên websocket khi có thể) ổn định hơn nhiều.
+      this.socket = io(this.url);
+
+      // Log rõ nguyên nhân khi không kết nối được (mở Console trên điện thoại/máy tính để xem)
+      this.socket.on('connect', () => console.log('🔌 Socket đã kết nối:', this.socket?.id));
+      this.socket.on('connect_error', (err) =>
+        console.error('🔌 Socket lỗi kết nối:', err.message),
+      );
+      this.socket.on('disconnect', (reason) => console.warn('🔌 Socket ngắt kết nối:', reason));
     }
     return this.socket;
   }
@@ -25,6 +35,22 @@ export class SocketService implements OnDestroy {
       const handler = (data: T) => subscriber.next(data);
       socket.on(eventName, handler);
       return () => socket.off(eventName, handler);
+    });
+  }
+
+  /** Theo dõi trạng thái kết nối socket (true = đã kết nối, false = mất kết nối) */
+  connectionStatus(): Observable<boolean> {
+    const socket = this.getSocket();
+    return new Observable<boolean>((subscriber) => {
+      subscriber.next(socket.connected);
+      const onConnect = () => subscriber.next(true);
+      const onDisconnect = () => subscriber.next(false);
+      socket.on('connect', onConnect);
+      socket.on('disconnect', onDisconnect);
+      return () => {
+        socket.off('connect', onConnect);
+        socket.off('disconnect', onDisconnect);
+      };
     });
   }
 

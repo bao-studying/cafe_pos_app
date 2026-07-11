@@ -94,6 +94,9 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
   manageRegistrations: ShiftRegistration[] = [];
   isManageLoading = false;
 
+  // ── Trạng thái kết nối real-time (Socket.io) ──
+  isSocketConnected = false;
+
   isSaving = false;
 
   constructor(
@@ -112,6 +115,14 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
     this.currentWeekStart = this.mondayOfDate(today);
     this.buildWeekColumns();
     this.loadAdminBoard();
+
+    // Theo dõi trạng thái kết nối real-time để hiện chỉ báo trên giao diện
+    this.subs.push(
+      this.socketService.connectionStatus().subscribe((connected) => {
+        this.isSocketConnected = connected;
+        this.cdr.markForCheck();
+      }),
+    );
 
     // Real-time: bất kỳ đăng ký/duyệt/từ chối ca nào cũng làm mới lại bảng lịch admin đang xem
     this.subs.push(
@@ -187,7 +198,7 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
           .forEach((r) => this.onlineStaffIds.add(this.extractId(r.staffId)));
         this.cdr.markForCheck();
       },
-      error: () => {},
+      error: (err) => console.error('Lỗi tải trạng thái chấm công (online status):', err),
     });
   }
 
@@ -207,7 +218,11 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
   }
 
   submitNewStaff() {
-    if (!this.newStaff.name.trim() || !this.newStaff.phone.trim() || !this.newStaff.password.trim()) {
+    if (
+      !this.newStaff.name.trim() ||
+      !this.newStaff.phone.trim() ||
+      !this.newStaff.password.trim()
+    ) {
       return alert('Vui lòng nhập đủ tên, số điện thoại và mật khẩu.');
     }
     this.isSaving = true;
@@ -369,12 +384,14 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
 
   toggleTemplateActive(template: ShiftTemplate) {
     if (!template?._id) return;
-    this.staffService.updateShiftTemplate(template._id, { isActive: !template.isActive }).subscribe({
-      next: () => {
-        this.loadShiftTemplates();
-        this.loadAdminBoard();
-      },
-    });
+    this.staffService
+      .updateShiftTemplate(template._id, { isActive: !template.isActive })
+      .subscribe({
+        next: () => {
+          this.loadShiftTemplates();
+          this.loadAdminBoard();
+        },
+      });
   }
 
   deleteTemplate(template: ShiftTemplate) {
@@ -515,7 +532,11 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
 
   copyFromPreviousWeek() {
     const prevWeekStart = this.addDaysToDateStr(this.currentWeekStart, -7);
-    if (!confirm('Sao chép toàn bộ số lượng nhân viên đã set của TUẦN TRƯỚC sang tuần đang xem?\nCác ô đã set riêng ở tuần này sẽ bị ghi đè.')) {
+    if (
+      !confirm(
+        'Sao chép toàn bộ số lượng nhân viên đã set của TUẦN TRƯỚC sang tuần đang xem?\nCác ô đã set riêng ở tuần này sẽ bị ghi đè.',
+      )
+    ) {
       return;
     }
     this.isSaving = true;
@@ -574,10 +595,15 @@ export class AdminStaffComponent implements OnInit, OnDestroy {
     if (!this.manageCell) return;
     this.isManageLoading = true;
     this.staffService
-      .getShiftRegistrations({ date: this.manageCell.date, shiftTemplateId: this.manageCell.shiftTemplateId })
+      .getShiftRegistrations({
+        date: this.manageCell.date,
+        shiftTemplateId: this.manageCell.shiftTemplateId,
+      })
       .subscribe({
         next: (data) => {
-          this.manageRegistrations = (Array.isArray(data) ? data : []).filter((r) => r.status !== 'rejected');
+          this.manageRegistrations = (Array.isArray(data) ? data : []).filter(
+            (r) => r.status !== 'rejected',
+          );
           this.isManageLoading = false;
           this.cdr.markForCheck();
         },

@@ -5,7 +5,13 @@
       <h2>Quản lý nhân viên</h2>
       <p>Ca làm việc, chấm công, lương và tài khoản nhân viên</p>
     </div>
-    <button type="button" class="btn-primary" (click)="openAddModal()">+ Thêm nhân viên</button>
+    <div class="header-right">
+      <span class="realtime-badge" [class.connected]="isSocketConnected">
+        <i class="dot"></i>
+        {{ isSocketConnected ? 'Real-time đang hoạt động' : 'Mất kết nối real-time' }}
+      </span>
+      <button type="button" class="btn-primary" (click)="openAddModal()">+ Thêm nhân viên</button>
+    </div>
   </div>
 
   <!-- ═══════════ TAB CHÍNH (cố định) ═══════════ -->

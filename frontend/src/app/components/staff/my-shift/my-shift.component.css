@@ -173,6 +173,30 @@
   background: #fee2e2;
   color: #dc2626;
 }
+
+.error-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+}
+.error-box p {
+  color: #b91c1c;
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+.error-box .btn-secondary {
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 10px;
+  border: 1px solid #fca5a5;
+  background: #fff;
+  color: #b91c1c;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
 /* ── Bảng lịch làm việc ── */
 .board-header {
   display: flex;
@@ -389,29 +413,4 @@
     opacity: 1;
     transform: scale(1);
   }
-}.top-tabs {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid #e2e8f0;
-  margin-bottom: 16px;
-  position: sticky;
-  top: 0;
-  background: #f1f5f9;
-  z-index: 5;
-}
-.top-tabs button {
-  flex: 1;
-  background: none;
-  border: none;
-  padding: 10px 4px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #64748b;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s ease;
-}
-.top-tabs button.active {
-  color: #0284c7;
-  border-bottom-color: #0284c7;
 }

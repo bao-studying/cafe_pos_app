@@ -30,6 +30,33 @@
   margin: 4px 0 0;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.realtime-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #dc2626;
+  background: #fee2e2;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+.realtime-badge.connected {
+  color: #16a34a;
+  background: #dcfce7;
+}
+.realtime-badge .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
 .btn-primary {
   background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
   color: #fff;

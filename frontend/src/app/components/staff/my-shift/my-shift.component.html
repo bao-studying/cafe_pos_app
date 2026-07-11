@@ -66,6 +66,11 @@
 
       @if (isBoardLoading) {
         <p class="muted">Đang tải bảng lịch...</p>
+      } @else if (boardLoadError) {
+        <div class="error-box">
+          <p>⚠️ {{ boardLoadError }}</p>
+          <button type="button" class="btn-secondary" (click)="loadBoard()">Thử lại</button>
+        </div>
       } @else if (scheduleRows.length === 0) {
         <p class="muted">Admin chưa mở ca đăng ký nào cho tuần này.</p>
       } @else {

@@ -64,6 +64,7 @@ export class MyShiftComponent implements OnInit, OnDestroy {
   weekEnd = '';
   scheduleRows: ScheduleRow[] = [];
   isBoardLoading = false;
+  boardLoadError = ''; // rỗng = không lỗi; có chữ = hiện thông báo lỗi + nút thử lại
 
   // ── Popup xác nhận đăng ký ──
   isConfirmOpen = false;
@@ -146,8 +147,16 @@ export class MyShiftComponent implements OnInit, OnDestroy {
   /** ── Bảng lịch làm việc ── */
 
   loadBoard() {
-    if (!this.staffId) return;
+    if (!this.staffId) {
+      // Không lấy được staffId (VD: login trên điện thoại không lưu được localStorage,
+      // hoặc chế độ duyệt ẩn danh) — trước đây lỗi này im lặng, giờ báo rõ luôn.
+      this.boardLoadError =
+        'Không xác định được tài khoản đăng nhập. Vui lòng đăng xuất và đăng nhập lại.';
+      this.cdr.markForCheck();
+      return;
+    }
     this.isBoardLoading = true;
+    this.boardLoadError = '';
     const weekStart = this.computeWeekStart();
 
     this.staffService.getScheduleBoard(weekStart, this.staffId).subscribe({
@@ -156,11 +165,13 @@ export class MyShiftComponent implements OnInit, OnDestroy {
         this.weekEnd = board.weekEnd;
         this.scheduleRows = this.groupCellsIntoRows(board.cells);
         this.isBoardLoading = false;
+        this.boardLoadError = '';
         this.cdr.markForCheck();
       },
       error: (err) => {
         console.error('[MyShiftComponent] Lỗi tải bảng lịch làm việc:', err);
         this.isBoardLoading = false;
+        this.boardLoadError = `Không tải được bảng lịch (mã lỗi: ${err?.status ?? 'không rõ'}). Kiểm tra kết nối mạng và thử lại.`;
         this.cdr.markForCheck();
       },
     });
