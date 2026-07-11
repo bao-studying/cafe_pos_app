@@ -13,6 +13,17 @@ export interface RevenueReport {
   details: DailyRevenue[];
 }
 
+export interface HourlyRevenue {
+  hour: number; // 0-23
+  hourlyRevenue: number;
+  totalOrders: number;
+}
+
+export interface HourlyRevenueReport {
+  totalRevenue: number;
+  hourly: HourlyRevenue[];
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -25,5 +36,9 @@ export class AdminService {
     return this.http.get<RevenueReport>(
       `${this.apiUrl}/revenue?startDate=${startDate}&endDate=${endDate}`,
     );
+  }
+
+  getHourlyRevenue(date: string): Observable<HourlyRevenueReport> {
+    return this.http.get<HourlyRevenueReport>(`${this.apiUrl}/revenue-hourly?date=${date}`);
   }
 }

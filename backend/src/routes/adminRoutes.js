@@ -5,5 +5,7 @@ const adminController = require("../controllers/adminController");
 
 // GET /api/admin/revenue?startDate=2025-01-01&endDate=2025-12-31
 router.get("/revenue", adminController.getRevenueReport);
+// GET /api/admin/revenue-hourly?date=2026-07-10
+router.get("/revenue-hourly", adminController.getHourlyRevenue);
 
 module.exports = router;

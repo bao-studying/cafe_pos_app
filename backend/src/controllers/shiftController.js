@@ -51,7 +51,7 @@ exports.updateShiftTemplate = async (req, res) => {
     const template = await ShiftTemplate.findByIdAndUpdate(
       req.params.id,
       update,
-      { new: true },
+      { returnDocument: "after" },
     );
     if (!template) {
       return res.status(404).json({ message: "Không tìm thấy ca mẫu." });
@@ -187,7 +187,7 @@ exports.updateShiftRegistration = async (req, res) => {
     const registration = await ShiftRegistration.findByIdAndUpdate(
       req.params.id,
       { status, note: note || "" },
-      { new: true },
+      { returnDocument: "after" },
     )
       .populate("staffId", "name phone")
       .populate("shiftTemplateId", "name startTime endTime");

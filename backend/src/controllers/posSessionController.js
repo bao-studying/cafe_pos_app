@@ -32,7 +32,7 @@ exports.sessionLogout = async (req, res) => {
     const log = await PosAccessLog.findByIdAndUpdate(
       req.params.id,
       { logoutTime: new Date() },
-      { new: true },
+      { returnDocument: "after" },
     ).populate("staffId", "name phone");
 
     if (!log) {

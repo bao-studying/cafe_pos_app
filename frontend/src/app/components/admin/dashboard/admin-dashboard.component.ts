@@ -8,8 +8,13 @@ import {
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, Subscription } from 'rxjs';
-import { AdminService, RevenueReport, DailyRevenue } from '../../../services/admin.service';
+import { forkJoin, of, Subscription } from 'rxjs';
+import {
+  AdminService,
+  RevenueReport,
+  DailyRevenue,
+  HourlyRevenueReport,
+} from '../../../services/admin.service';
 import { OrderService } from '../../../services/order.service';
 import { skip } from 'rxjs/operators';
 
@@ -32,6 +37,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   report: RevenueReport | null = null;
   previousReport: RevenueReport | null = null;
+  hourlyReport: HourlyRevenueReport | null = null; // Dùng khi rangePreset === 'today'
 
   displayRevenue = 0;
   displayOrders = 0;
@@ -114,13 +120,17 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     const prevStartStr = this.toDateInputValue(prevStart);
     const prevEndStr = this.toDateInputValue(prevEnd);
 
+    const isToday = this.rangePreset === 'today';
+
     forkJoin({
       current: this.adminService.getRevenue(this.startDate, this.endDate),
       previous: this.adminService.getRevenue(prevStartStr, prevEndStr),
+      hourly: isToday ? this.adminService.getHourlyRevenue(this.startDate) : of(null),
     }).subscribe({
-      next: ({ current, previous }) => {
+      next: ({ current, previous, hourly }) => {
         this.report = current;
         this.previousReport = previous;
+        this.hourlyReport = hourly;
         this.isLoading = false;
         this.animateCountUp();
         this.cdr.detectChanges();
@@ -175,6 +185,58 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   formatDayLabel(isoDate: string): string {
     const [, m, d] = isoDate.split('-');
     return `${d}/${m}`;
+  }
+
+  // ── Biểu đồ đường theo giờ (tab "Hôm nay") kiểu chứng khoán ──────────
+  get hourlyMaxRevenue(): number {
+    if (!this.hourlyReport) return 0;
+    return Math.max(...this.hourlyReport.hourly.map((h) => h.hourlyRevenue), 1);
+  }
+
+  private get hourlyLinePoints(): { x: number; y: number }[] {
+    if (!this.hourlyReport) return [];
+    const max = this.hourlyMaxRevenue;
+    const data = this.hourlyReport.hourly;
+    const stepX = 100 / (data.length - 1);
+    return data.map((h, i) => ({
+      x: i * stepX,
+      // Chừa 8% lề trên/dưới để đường không bị dính sát mép biểu đồ
+      y: 92 - (h.hourlyRevenue / max) * 84,
+    }));
+  }
+
+  get hourlyLinePath(): string {
+    const points = this.hourlyLinePoints;
+    if (!points.length) return '';
+    return points
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
+      .join(' ');
+  }
+
+  get hourlyAreaPath(): string {
+    const line = this.hourlyLinePath;
+    if (!line) return '';
+    return `${line} L 100 100 L 0 100 Z`;
+  }
+
+  // Giờ có doanh thu cao nhất trong ngày, để chấm điểm nổi bật trên đường
+  get peakHourPoint(): { x: number; y: number; hour: number; revenue: number } | null {
+    if (!this.hourlyReport || !this.hourlyReport.hourly.length) return null;
+    const points = this.hourlyLinePoints;
+    let maxIdx = 0;
+    this.hourlyReport.hourly.forEach((h, i) => {
+      if (h.hourlyRevenue > this.hourlyReport!.hourly[maxIdx].hourlyRevenue) maxIdx = i;
+    });
+    if (this.hourlyReport.hourly[maxIdx].hourlyRevenue <= 0) return null;
+    return {
+      ...points[maxIdx],
+      hour: this.hourlyReport.hourly[maxIdx].hour,
+      revenue: this.hourlyReport.hourly[maxIdx].hourlyRevenue,
+    };
+  }
+
+  get hasHourlyData(): boolean {
+    return !!this.hourlyReport && this.hourlyReport.totalRevenue > 0;
   }
 
   private animateCountUp() {

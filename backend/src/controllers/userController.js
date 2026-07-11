@@ -104,7 +104,7 @@ exports.updateUser = async (req, res) => {
     if (hourlyRate !== undefined) update.hourlyRate = Number(hourlyRate);
 
     const user = await User.findByIdAndUpdate(req.params.id, update, {
-      new: true,
+      returnDocument: "after",
     }).select("-password");
     if (!user) {
       return res.status(404).json({ message: "Không tìm thấy nhân viên." });
@@ -126,7 +126,7 @@ exports.updateUserStatus = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { isActive },
-      { new: true },
+      { returnDocument: "after" },
     ).select("-password");
     if (!user) {
       return res.status(404).json({ message: "Không tìm thấy nhân viên." });

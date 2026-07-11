@@ -69,21 +69,73 @@
       </div>
 
       <div class="chart-card">
-        <p class="chart-title">Doanh thu theo ngày</p>
+        <p class="chart-title">
+          {{ rangePreset === 'today' ? 'Doanh thu theo giờ (0h - 24h)' : 'Doanh thu theo ngày' }}
+        </p>
 
-        <div class="bar-chart" *ngIf="report && report.details.length > 0">
-          <div class="bar-col" *ngFor="let day of report.details">
-            <span class="bar-value">{{ day.dailyRevenue | number }}đ</span>
-            <div class="bar-track">
-              <div class="bar-fill" [style.height.%]="barHeightPercent(day)"></div>
+        <!-- Tab "Hôm nay": biểu đồ đường lên xuống kiểu chứng khoán -->
+        <ng-container *ngIf="rangePreset === 'today'">
+          <div class="hourly-chart" *ngIf="hasHourlyData">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="hourly-svg">
+              <defs>
+                <linearGradient id="hourlyAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="var(--dash-mint-glow)" stop-opacity="0.35" />
+                  <stop offset="100%" stop-color="var(--dash-mint-glow)" stop-opacity="0" />
+                </linearGradient>
+              </defs>
+              <path [attr.d]="hourlyAreaPath" fill="url(#hourlyAreaGradient)" class="hourly-area" />
+              <path
+                [attr.d]="hourlyLinePath"
+                fill="none"
+                stroke="var(--dash-mint)"
+                stroke-width="2"
+                vector-effect="non-scaling-stroke"
+                class="hourly-line"
+              />
+              <circle
+                *ngIf="peakHourPoint as peak"
+                [attr.cx]="peak.x"
+                [attr.cy]="peak.y"
+                r="1.6"
+                vector-effect="non-scaling-stroke"
+                class="hourly-peak-dot"
+              />
+            </svg>
+
+            <div class="hourly-axis">
+              <span>0h</span>
+              <span>6h</span>
+              <span>12h</span>
+              <span>18h</span>
+              <span>24h</span>
             </div>
-            <span class="bar-label">{{ formatDayLabel(day._id) }}</span>
-          </div>
-        </div>
 
-        <div class="chart-empty" *ngIf="!report || report.details.length === 0">
-          <p>☕ Chưa có đơn hàng nào trong khoảng thời gian này.</p>
-        </div>
+            <p class="hourly-peak-note" *ngIf="peakHourPoint as peak">
+              📈 Giờ cao điểm: {{ peak.hour }}h — {{ peak.revenue | number }}đ
+            </p>
+          </div>
+
+          <div class="chart-empty" *ngIf="!hasHourlyData">
+            <p>☕ Chưa có đơn hàng nào hôm nay.</p>
+          </div>
+        </ng-container>
+
+        <!-- Tab 7 ngày / 30 ngày / tuỳ chỉnh: biểu đồ cột theo ngày -->
+        <ng-container *ngIf="rangePreset !== 'today'">
+          <div class="bar-chart" *ngIf="report && report.details.length > 0">
+            <div class="bar-col" *ngFor="let day of report.details">
+              <span class="bar-value">{{ day.dailyRevenue | number }}đ</span>
+              <div class="bar-track">
+                <div class="bar-fill" [style.height.%]="barHeightPercent(day)"></div>
+              </div>
+              <span class="bar-label">{{ formatDayLabel(day._id) }}</span>
+            </div>
+          </div>
+
+          <div class="chart-empty" *ngIf="!report || report.details.length === 0">
+            <p>☕ Chưa có đơn hàng nào trong khoảng thời gian này.</p>
+          </div>
+        </ng-container>
       </div>
     </ng-container>
   </div>

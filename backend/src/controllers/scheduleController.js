@@ -65,11 +65,18 @@ exports.upsertSlotConfig = async (req, res) => {
         shiftTemplateId,
         capacity: Number(capacity),
       },
-      { upsert: true, new: true },
+      { upsert: true, returnDocument: "after" },
     ).populate("shiftTemplateId", "name startTime endTime isActive");
 
     res.json({ message: "Đã lưu sức chứa cho ô lịch.", slot });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(500).json({
+        message:
+          "Lỗi trùng khoá dữ liệu (có thể do index cũ từ bản trước chưa được dọn). Hãy khởi động lại server backend rồi thử lại.",
+        error: error.message,
+      });
+    }
     res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
   }
 };
